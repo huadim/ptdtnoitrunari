@@ -9,8 +9,8 @@ from django.utils.timezone import localdate
 
 from .access import record, require, school_view
 from .common import fail, page, post_form
-from .forms import DutyTypeForm, EmployeeForm, HolidayForm, ImportForm, RateForm
-from .models import Audit, DutyType, Employee, Holiday, Rate
+from .forms import DutyTypeForm, EligibleStaffForm, EmployeeForm, HolidayForm, ImportForm, PayRateForm, RateForm
+from .models import Audit, DutyType, Employee, Holiday, PayRate, Rate
 
 
 def employee_rows(upload):
@@ -138,6 +138,7 @@ def staff(request):
 def configuration(request):
     require(request, "settings")
     types = DutyType.objects.filter(school=request.school).order_by("name")
+    active_staff = Employee.objects.filter(school=request.school, active=True)
     if request.method == "POST":
         action = request.POST.get("action")
         try:
@@ -164,6 +165,23 @@ def configuration(request):
                     if not new:
                         fail("Đã có hệ số cho nhóm ngày và ngày hiệu lực này. Thêm ngày hiệu lực khác.")
                     record(request, "rate.create", f"Hệ số #{rate.pk}: {units}")
+            elif action == "pay_rate":
+                kind = get_object_or_404(types, pk=request.POST.get("id", "0"))
+                data = post_form(request, PayRateForm(request.POST))
+                if data:
+                    rate, new = PayRate.objects.get_or_create(
+                        duty_type=kind, effective=data["effective"],
+                        defaults={"unit_price": data["unit_price"], "reference": data["reference"]},
+                    )
+                    if not new:
+                        fail("Đã có đơn giá cho loại trực và ngày hiệu lực này.")
+                    record(request, "pay_rate.create", f"Đơn giá #{rate.pk}: {rate.unit_price} đồng/công.")
+            elif action == "eligible_staff":
+                kind = get_object_or_404(types, pk=request.POST.get("id", "0"))
+                data = post_form(request, EligibleStaffForm(request.POST, staff=active_staff))
+                if data:
+                    kind.eligible_staff.set(data["employees"])
+                    record(request, "duty_type.eligible_staff", f"Đã cập nhật nhân sự loại trực #{kind.pk}.")
             elif action == "holiday":
                 data = post_form(request, HolidayForm(request.POST))
                 if data:
@@ -181,7 +199,11 @@ def configuration(request):
         except ValidationError as exc:
             messages.error(request, " ".join(exc.messages))
         return redirect("configuration")
-    return page(request, "configuration", types=types, type_form=DutyTypeForm(), rate_form=RateForm(),
+    groups = [(kind, EligibleStaffForm(staff=active_staff, initial={"employees": kind.eligible_staff.all()},
+                                      auto_id=f"kind-{kind.pk}-%s")) for kind in types]
+    return page(request, "configuration", groups=groups, type_form=DutyTypeForm(), rate_form=RateForm(),
+                pay_form=PayRateForm(), pay_rates=PayRate.objects.filter(duty_type__school=request.school)
+                .select_related("duty_type")[:100],
                 holiday_form=HolidayForm(), holidays=Holiday.objects.filter(school=request.school).order_by("-date")[:60],
                 rates=Rate.objects.filter(duty_type__school=request.school).select_related("duty_type").order_by("-effective")[:100])
 

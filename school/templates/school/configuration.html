@@ -7,7 +7,7 @@
 <details class="card"><summary>Thêm ngày lễ</summary><form class="stack" method="post">{% csrf_token %}{{ holiday_form.as_p }}<button name="action" value="holiday" class="primary">Lưu ngày lễ</button></form></details>
 </div>
 <section class="card"><h2>Loại trực và quy tắc</h2><p class="hint">Để áp dụng quy tắc mới cho một lịch nháp đã tạo, mở lịch đó và chọn Nạp quy tắc hiện hành.</p>
-{% for kind in types %}<details class="subsection"><summary>{{ kind.name }} · {{ kind.people }} người/ngày</summary>
+{% for kind, eligible_form in groups %}<details class="subsection"><summary>{{ kind.name }} · {{ kind.people }} người/ngày</summary>
 <div class="panels"><form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}">
 <label>Tên loại trực<input name="name" value="{{ kind.name }}" maxlength="100" required></label>
 <label>Số người/ngày<input name="people" type="number" min="1" max="4" value="{{ kind.people }}" required></label>
@@ -15,11 +15,17 @@
 <label>Khoảng cách ưu tiên từ<input name="preferred_min" type="number" min="1" max="30" value="{{ kind.preferred_min }}" required></label>
 <label>Khoảng cách ưu tiên đến<input name="preferred_max" type="number" min="1" max="30" value="{{ kind.preferred_max }}" required></label>
 <label>Số ngày trực cuối tuần cặp phải nghỉ<input name="pair_rest" type="number" min="0" max="20" value="{{ kind.pair_rest }}" required></label>
+<label>Số cuối tuần nghỉ theo từng người<input name="weekend_rest" type="number" min="0" max="12" value="{{ kind.weekend_rest }}"><small>Thứ Bảy và Chủ nhật tính chung một cuối tuần. Nhập 0 để tắt quy tắc.</small></label>
 <button name="action" value="type">Lưu quy tắc</button></form>
-<form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}"><strong>Thêm hệ số cho {{ kind.name }}</strong>{{ rate_form.as_p }}<button name="action" value="rate" class="primary">Lưu mức công</button></form></div>
+<form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}"><strong>Thêm hệ số cho {{ kind.name }}</strong>{{ rate_form.as_p }}<button name="action" value="rate" class="primary">Lưu mức công</button></form>
+<form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}"><strong>Nhóm nhân sự đủ điều kiện</strong>{{ eligible_form.as_p }}<p class="hint">Bỏ trống để cho phép mọi nhân sự đang hoạt động.</p><button name="action" value="eligible_staff">Lưu nhóm nhân sự</button></form>
+<form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}"><strong>Đơn giá tiền trực đã được xác nhận</strong>{{ pay_form.as_p }}<button name="action" value="pay_rate">Lưu đơn giá</button></form></div>
 </details>{% empty %}<p class="empty">Chưa có loại trực.</p>{% endfor %}</section>
 <div class="panels">
 <section class="card"><h2>Lịch sử mức công</h2><div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Hiệu lực</th><th>Nhóm ngày</th><th>Công</th></tr></thead><tbody>{% for rate in rates %}<tr><td>{{ rate.duty_type.name }}</td><td>{{ rate.effective|date:"d/m/Y" }}</td><td>{{ rate.get_kind_display }}</td><td>{{ rate.units }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa có hệ số quy đổi.</td></tr>{% endfor %}</tbody></table></div></section>
 <section class="card"><h2>Ngày lễ đã cấu hình</h2>{% for day in holidays %}<div class="list-item"><strong>{{ day.date|date:"d/m/Y" }}</strong><span>{{ day.label }}</span></div>{% empty %}<p class="empty">Chưa có ngày lễ.</p>{% endfor %}</section>
 </div>
+<section class="card"><h2>Lịch sử đơn giá tiền trực</h2><div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Hiệu lực</th><th>Đơn giá (đ/công)</th><th>Căn cứ</th></tr></thead><tbody>
+{% for rate in pay_rates %}<tr><td>{{ rate.duty_type.name }}</td><td>{{ rate.effective|date:"d/m/Y" }}</td><td>{{ rate.unit_price }}</td><td>{{ rate.reference }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa cấu hình đơn giá.</td></tr>{% endfor %}
+</tbody></table></div></section>
 {% endblock %}

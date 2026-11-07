@@ -44,7 +44,7 @@
     <div class="account"><strong>{{ member.employee.name }}</strong><small>{{ member.get_role_display }}</small><div class="account-links"><a href="{% url 'password' %}">Đổi mật khẩu</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="text-button">Đăng xuất</button></form></div></div>
   </aside>
   <main id="main">
-    {% if messages %}<div class="alerts" aria-live="polite">{% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% if messages %}<div class="alerts">{% for message in messages %}<div class="alert {{ message.tags }}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

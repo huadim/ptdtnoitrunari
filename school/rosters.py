@@ -1,15 +1,24 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.timezone import localdate
 
 from .access import employee_scope, record, require, school_view
 from .common import bad_month, chosen_month, employees, fail, month_locked, page, post_form
-from .forms import MonthField
-from .models import DutyDay, DutyType, Notification, Roster, Slot, State
-from .scheduling import Rules, month_dates
+from .forms import DutyRoundForm, MonthField
+from .models import DutyDay, DutyType, MonthClose, Notification, Roster, Slot, State
+from .scheduling import Rules, dates_between, eligible_employees, month_dates
+
+
+RULE_FIELDS = ("people", "min_gap", "preferred_min", "preferred_max", "pair_rest", "weekend_rest")
+
+
+def rosters_in_month(school, month):
+    return Roster.objects.filter(duty_type__school=school).filter(
+        Q(round_number__isnull=True, month=month) | Q(dutyday__date__range=(month, month_dates(month)[-1])),
+    ).distinct()
 
 
 @school_view
@@ -22,74 +31,110 @@ def rosters(request):
     if request.method == "POST":
         require(request, "plan")
         try:
-            target = MonthField().clean(request.POST.get("month"))
-        except ValidationError:
-            return bad_month()
-        try:
             kind = get_object_or_404(types, pk=request.POST.get("duty_type", "0"))
         except (TypeError, ValueError):
             return HttpResponseBadRequest("Loại trực không hợp lệ.")
-        if month_locked(request.school, target):
-            messages.error(request, "Tháng đã khóa chấm công.")
+        try:
+            return create_roster(request, kind)
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
             return redirect("rosters")
-        roster, created = Roster.objects.get_or_create(
-            duty_type=kind, month=target, defaults={field: getattr(kind, field) for field in
-                                                    ("people", "min_gap", "preferred_min", "preferred_max", "pair_rest")},
-        )
-        if created:
-            DutyDay.objects.bulk_create([DutyDay(roster=roster, date=day) for day in month_dates(target)])
-            record(request, "roster.create", f"#{roster.pk}, {target:%m/%Y}, {kind.name}")
-        return redirect("roster", pk=roster.pk)
 
-    rows = Roster.objects.filter(duty_type__school=request.school, month=month).select_related("duty_type")
+    rows = rosters_in_month(request.school, month).select_related("duty_type").order_by("month", "round_number", "pk")
     if not request.rights["all_duty"]:
         visible = employee_scope(request, Slot.objects.filter(day__roster__in=rows), "assigned", "all_duty")
         rows = rows.filter(state=State.PUBLISHED, pk__in=visible.values("day__roster_id"))
-    return page(request, "rosters", rosters=rows, month=month, types=types)
+    return page(request, "rosters", rosters=rows, month=month, types=types, round_form=DutyRoundForm())
+
+
+def create_roster(request, kind):
+    round_number = None
+    if request.POST.get("action") == "round":
+        data = post_form(request, DutyRoundForm(request.POST))
+        if data is None:
+            return redirect("rosters")
+        round_number = data["round_number"]
+        dates = dates_between(data["start"], data["end"])
+    else:
+        try:
+            dates = month_dates(MonthField().clean(request.POST.get("month")))
+        except ValidationError:
+            return bad_month()
+    month = dates[0].replace(day=1)
+    if MonthClose.objects.filter(school=request.school, locked=True,
+                                 month__range=(month, dates[-1].replace(day=1))).exists():
+        fail("Khoảng ngày có tháng đã khóa chấm công.")
+
+    overlapping = DutyDay.objects.filter(roster__duty_type=kind, date__range=(dates[0], dates[-1]))
+    existing = overlapping.order_by().values_list("roster_id", flat=True).distinct()
+    if round_number is None:
+        roster = Roster.objects.filter(duty_type=kind, month=month, round_number__isnull=True).first()
+        if roster:
+            return redirect("roster", pk=roster.pk)
+    elif len(existing) == 1:
+        roster = Roster.objects.get(pk=existing[0])
+        if roster.round_number == round_number and list(roster.dutyday_set.values_list("date", flat=True)) == dates:
+            return redirect("roster", pk=roster.pk)
+    if overlapping.exists():
+        fail("Khoảng ngày trùng với một lịch đã có của loại trực này.")
+    roster = Roster.objects.create(duty_type=kind, month=month, round_number=round_number,
+                                   **{field: getattr(kind, field) for field in RULE_FIELDS})
+    DutyDay.objects.bulk_create([DutyDay(roster=roster, date=day) for day in dates])
+    record(request, "roster.create", f"#{roster.pk}, {roster.label}, {kind.name}")
+    return redirect("roster", pk=roster.pk)
 
 
 def change_roster(request, roster):
     action = request.POST.get("action")
     days = list(roster.dutyday_set.prefetch_related("slots"))
     current = {day.date: [slot.assigned_id for slot in day.slots.all()] for day in days}
-    if action in {"assign", "generate", "toggle_day", "refresh_rules", "submit"}:
+    locked = MonthClose.objects.filter(school=request.school, locked=True,
+                                       month__in={day.date.replace(day=1) for day in days} | {roster.month}).exists()
+    if action in {"assign", "generate", "toggle_day", "toggle_required", "refresh_rules", "submit"}:
         require(request, "plan")
-        if roster.state != State.DRAFT or month_locked(request.school, roster.month):
+        if roster.state != State.DRAFT or locked:
             fail("Chỉ chỉnh sửa lịch nháp của tháng chưa khóa.")
     elif action in {"approve", "publish", "return"}:
         require(request, "duty_approve")
-        if month_locked(request.school, roster.month):
+        if locked:
             fail("Tháng đã khóa chấm công.")
     else:
         fail("Thao tác không hợp lệ.")
 
     if action == "refresh_rules":
-        for field in ("people", "min_gap", "preferred_min", "preferred_max", "pair_rest"):
+        for field in RULE_FIELDS:
             setattr(roster, field, getattr(roster.duty_type, field))
         roster.save()
     elif action == "generate":
-        result, explanation = Rules(roster).solve({day.date: current[day.date] for day in days if day.locked})
+        result, explanation = Rules(roster).solve({day.date: current[day.date] for day in days if day.locked and not day.not_required})
         if result is None:
             fail(explanation)
-        unlocked = [day for day in days if not day.locked]
+        unlocked = [day for day in days if not day.locked and not day.not_required]
         Slot.objects.filter(day__in=unlocked).delete()
         Slot.objects.bulk_create([Slot(day=day, original_id=employee, assigned_id=employee)
                                   for day in unlocked for employee in result[day.date]])
-    elif action in {"assign", "toggle_day"}:
+    elif action in {"assign", "toggle_day", "toggle_required"}:
         day = get_object_or_404(roster.dutyday_set, pk=request.POST.get("day", "0"))
         if action == "toggle_day":
             day.locked = not day.locked
             day.save(update_fields=["locked"])
+        elif action == "toggle_required":
+            if day.locked or current[day.date]:
+                fail("Mở khóa ngày và bỏ phân công trước khi đổi trạng thái cần trực.")
+            day.not_required = not day.not_required
+            day.save(update_fields=["not_required"])
         else:
             if day.locked:
                 fail("Ngày này đang khóa.")
+            if day.not_required:
+                fail("Ngày này không có nhiệm vụ cho loại trực này.")
             submitted = request.POST.getlist("employees")
             ids = list(employees(request).filter(pk__in=submitted).values_list("pk", flat=True))
             if len(ids) != len(submitted):
-                fail("Có nhân sự không hợp lệ hoặc bị trùng.")
+                fail(f"Ngày {day.date:%d/%m/%Y}: có nhân sự không hợp lệ hoặc bị chọn trùng. Kiểm tra lại danh sách.")
             issues = Rules(roster).reasons(day.date, ids, current)
             if issues:
-                fail(" ".join(issues))
+                fail(f"Ngày {day.date:%d/%m/%Y}: " + " ".join(issues) + " Hãy đổi người hoặc chọn ngày khác.")
             day.slots.all().delete()
             Slot.objects.bulk_create([Slot(day=day, original_id=employee, assigned_id=employee) for employee in ids])
     else:
@@ -110,10 +155,10 @@ def change_roster(request, roster):
         roster.save(update_fields=["state"])
         if action == "publish":
             Notification.objects.bulk_create([
-                Notification(employee_id=employee, text=f"Đã công bố {roster.duty_type.name} tháng {roster.month:%m/%Y}.")
+                Notification(employee_id=employee, text=f"Đã công bố {roster.duty_type.name} · {roster.label}.")
                 for employee in {member for ids in current.values() for member in ids}
             ])
-    suffix = f", ngày {day.date:%d/%m/%Y}" if action in {"assign", "toggle_day"} else ""
+    suffix = f", ngày {day.date:%d/%m/%Y}" if action in {"assign", "toggle_day", "toggle_required"} else ""
     record(request, f"roster.{action}", f"Lịch #{roster.pk}{suffix}")
     messages.success(request, "Đã lưu lịch trực.")
 
@@ -150,18 +195,31 @@ def roster_detail(request, pk):
         days = days.filter(pk__in=slots.values("day_id"))
     days = list(days)
     issues, stats, close = [], [], []
+    can_edit = request.rights["plan"] and roster.state == State.DRAFT
     if request.rights["all_duty"]:
         current = {day.date: [slot.assigned_id for slot in day.visible_slots] for day in days}
         rules = Rules(roster)
         if roster.state != State.PUBLISHED:
             issues = rules.validate(current)
+        if can_edit:
+            options = list(eligible_employees(roster.duty_type))
+            for day in days:
+                if day.locked or day.not_required:
+                    continue
+                day.options = [
+                    (person, " ".join(rules.reasons(day.date, [person.pk], current)), person.pk in current[day.date])
+                    for person in options
+                ]
         for employee, name in rules.people.items():
             dates = [day for day, ids in current.items() if employee in ids]
             stats.append((name, len(dates), sum(day.weekday() == 5 for day in dates), sum(day.weekday() == 6 for day in dates)))
-            close.extend(f"{name}: {start:%d/%m} – {end:%d/%m}"
-                         for start, end in zip(dates, dates[1:]) if (end - start).days < roster.preferred_min)
-    return page(request, "roster", roster=roster, days=days, options=employees(request),
-                issues=issues, stats=stats, close=close, can_edit=request.rights["plan"] and roster.state == State.DRAFT)
+            timeline = sorted(set(rules.history[employee]) | set(dates))
+            close.extend(f"{name}: {start:%d/%m} – {end:%d/%m} ({(end - start).days} ngày)"
+                         for start, end in zip(timeline, timeline[1:])
+                         if end in dates and not roster.preferred_min <= (end - start).days <= roster.preferred_max)
+    months = sorted({day.date.replace(day=1) for day in days})
+    return page(request, "roster", roster=roster, days=days, issues=issues, stats=stats, close=close, months=months,
+                can_edit=can_edit)
 
 
 @school_view
@@ -191,7 +249,7 @@ def request_page(request, school_slots):
                 day = slot.day.date
                 data = post_form(request, ReasonForm(request.POST))
                 if data:
-                    if (day < localdate() or month_locked(request.school, slot.day.roster.month)
+                    if (day < localdate() or month_locked(request.school, day.replace(day=1))
                             or Request.objects.filter(slot=slot, status=Decision.PENDING).exists()
                             or hasattr(slot, "attendance")):
                         fail("Ca đã qua, đã được xác nhận, đã khóa hoặc đang có đề nghị thay ca.")
@@ -226,7 +284,7 @@ def decide_request(request, item, action, school_slots):
         if item.slot_id:
             slot = item.slot
             roster = slot.day.roster
-            if (slot.assigned_id != item.employee_id or month_locked(request.school, roster.month)
+            if (slot.assigned_id != item.employee_id or month_locked(request.school, slot.day.date.replace(day=1))
                     or hasattr(slot, "attendance") or item.start < localdate()):
                 fail("Ca đã thay đổi, đã qua hoặc đã xác nhận chấm công.")
             replacement = get_object_or_404(employees(request), pk=request.POST.get("replacement", "0"))
@@ -265,5 +323,6 @@ def roster_export(request, pk, format):
              slot.original.name if request.rights["all_duty"] else "—")
             for slot in visible_slots(request, roster).select_related("day").order_by("day__date", "assigned__name")]
     return document(request, f"LỊCH PHÂN CÔNG {roster.duty_type.name.upper()}",
-                    f"Tháng {roster.month:%m/%Y} · {roster.get_state_display()}",
-                    ("Ngày trực", "Người trực", "Phân công ban đầu"), rows, f"lich-truc-{roster.month:%Y-%m}", format)
+                    f"{roster.label} · {roster.get_state_display()}",
+                    ("Ngày trực", "Người trực", "Phân công ban đầu"), rows,
+                    f"lich-truc-{roster.pk}-{roster.month:%Y-%m}", format)
