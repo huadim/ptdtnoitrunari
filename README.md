@@ -2,6 +2,10 @@
 
 Ứng dụng web tiếng Việt cho nghiệp vụ giáo vụ tại Trường PTDT Nội trú Na Rì và các trường khác. Phiên bản đầu tập trung vào lịch trực, chấm công, phân quyền và báo cáo in A4. Dữ liệu được lưu trong cơ sở dữ liệu, với từng tài khoản gắn vào một trường.
 
+## Trang giới thiệu GitHub Pages
+
+Mở **Settings → Pages** trong kho GitHub. Chọn **Deploy from a branch**, chọn nhánh **main** và thư mục **/docs**, sau đó bấm **Save**. GitHub hiển thị địa chỉ trang ở mục **Visit site** khi xuất bản xong. Trang này giới thiệu phần mềm và dẫn tới hướng dẫn triển khai. Tính năng đăng nhập và dữ liệu dùng chung chạy trên máy chủ theo phần bên dưới.
+
 ## Xuất bản qua Render
 
 [![Triển khai EDUSCHOOL trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhuadim%2Fptdtnoitrunari)
