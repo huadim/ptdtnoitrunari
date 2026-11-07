@@ -11,9 +11,9 @@ Mở **Settings → Pages** trong kho GitHub. Chọn **Deploy from a branch**, c
 [![Triển khai EDUSCHOOL trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhuadim%2Fptdtnoitrunari)
 
 1. Mở nút triển khai, chọn không gian làm việc trên Render và xem lại chi phí. Cấu hình tạo một dịch vụ web và một cơ sở dữ liệu PostgreSQL trả phí tại Singapore.
-2. Điền `EDUSCHOOL_PRINCIPAL_PASSWORD` ngay trên trang Render. Dùng mật khẩu riêng, từ 12 ký tự trở lên, rồi xác nhận **Deploy Blueprint**.
-3. Khi dịch vụ web hiện **Live**, mở địa chỉ `onrender.com` trên trang dịch vụ và đăng nhập bằng `hieutruong.nari`. Trường và tài khoản được tạo tự động.
-4. Sau khi đăng nhập thành công, xóa biến `EDUSCHOOL_PRINCIPAL_PASSWORD` tại **Environment** của dịch vụ web. Những lần triển khai sau giữ nguyên tài khoản và mật khẩu đã đặt. Có thể cập nhật tên hiển thị của hiệu trưởng trong **Nhân sự**.
+2. Điền địa chỉ email dùng làm tên đăng nhập vào `EDUSCHOOL_PRINCIPAL_USERNAME`. Nhập mật khẩu riêng từ 12 ký tự trở lên vào `EDUSCHOOL_PRINCIPAL_PASSWORD`, rồi xác nhận **Deploy Blueprint**.
+3. Khi dịch vụ web hiện **Live**, mở địa chỉ `onrender.com` trên trang dịch vụ và đăng nhập bằng email và mật khẩu bạn vừa đặt. Trường và tài khoản hiệu trưởng được tạo tự động.
+4. Sau khi đăng nhập thành công, xóa biến `EDUSCHOOL_PRINCIPAL_PASSWORD` tại **Environment** của dịch vụ web. Với trường đã khởi tạo, dùng tên đăng nhập hiện tại khi cấu hình lần triển khai tiếp theo. Có thể cập nhật tên hiển thị của hiệu trưởng trong **Nhân sự**.
 
 Cơ sở dữ liệu dùng kết nối nội bộ mã hóa. Hệ thống phục vụ qua HTTPS, cấu hình bí mật Django tự động và dùng PostgreSQL cho dữ liệu trường. Khi muốn đưa phiên bản mới từ GitHub lên, chọn **Manual Deploy → Deploy latest commit** trong dịch vụ Render.
 

@@ -392,7 +392,7 @@ class SchoolTests(TestCase):
 class DeploymentTests(TestCase):
     def test_bootstrap_creates_principal_once_and_preserves_password(self):
         args = ["--if-missing", "--slug", "na-ri", "--name", "Trường Nội trú",
-                "--location", "Na Rì", "--username", "principal.nari", "--principal", "Hiệu trưởng"]
+                "--location", "Na Rì", "--username", "principal@example.invalid", "--principal", "Hiệu trưởng"]
         with patch.dict(os.environ, {"EDUSCHOOL_PRINCIPAL_PASSWORD": ""}):
             with self.assertRaisesMessage(CommandError, "EDUSCHOOL_PRINCIPAL_PASSWORD"):
                 call_command("create_school", *args, stdout=StringIO())
@@ -401,6 +401,7 @@ class DeploymentTests(TestCase):
             call_command("create_school", *args, stdout=StringIO())
         member = Membership.objects.select_related("user", "employee__school").get()
         self.assertEqual((member.role, member.employee.school.slug), (Role.PRINCIPAL, "na-ri"))
+        self.assertEqual(member.user.username, "principal@example.invalid")
         self.assertTrue(member.user.check_password(PASSWORD))
         password_hash = member.user.password
         with patch.dict(os.environ, {"EDUSCHOOL_PRINCIPAL_PASSWORD": ""}):

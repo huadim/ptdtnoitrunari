@@ -21,6 +21,8 @@ services:
         fromDatabase:
           name: eduschool-na-ri-db
           property: connectionString
+      - key: EDUSCHOOL_PRINCIPAL_USERNAME
+        sync: false
       - key: EDUSCHOOL_PRINCIPAL_PASSWORD
         sync: false
 

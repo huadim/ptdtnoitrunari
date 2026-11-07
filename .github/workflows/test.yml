@@ -40,15 +40,23 @@ jobs:
           RENDER_EXTERNAL_URL: https://eduschool-test.onrender.com
           DJANGO_TRUST_PROXY: "1"
           WEB_CONCURRENCY: "1"
+          EDUSCHOOL_PRINCIPAL_USERNAME: principal@example.invalid
         run: |
           set -euo pipefail
           docker build -t eduschool-verify .
           export DJANGO_SECRET_SEED="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
           export EDUSCHOOL_PRINCIPAL_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
           runtime=(--network host -e DATABASE_URL -e RENDER_EXTERNAL_HOSTNAME -e RENDER_EXTERNAL_URL
-                   -e DJANGO_SECRET_SEED -e DJANGO_TRUST_PROXY -e WEB_CONCURRENCY -e PORT=10000)
+                   -e DJANGO_SECRET_SEED -e DJANGO_TRUST_PROXY -e WEB_CONCURRENCY
+                   -e EDUSCHOOL_PRINCIPAL_USERNAME -e PORT=10000)
           docker run --rm "${runtime[@]}" -e EDUSCHOOL_PRINCIPAL_PASSWORD eduschool-verify sh deploy/render-release.sh
           docker run --rm "${runtime[@]}" eduschool-verify sh deploy/render-release.sh
+          docker run --rm "${runtime[@]}" -e EDUSCHOOL_PRINCIPAL_PASSWORD eduschool-verify python manage.py shell -c '
+          import os
+          from django.contrib.auth import authenticate
+          user = authenticate(username=os.environ["EDUSCHOOL_PRINCIPAL_USERNAME"], password=os.environ["EDUSCHOOL_PRINCIPAL_PASSWORD"])
+          assert user is not None and user.membership.role == "principal"
+          '
           docker run -d --name eduschool-verify "${runtime[@]}" eduschool-verify
           trap 'docker logs eduschool-verify && docker rm -f eduschool-verify' EXIT
           local_url=http://127.0.0.1:10000
