@@ -6,8 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tổng quan{% endblock %} · EDUSCHOOL</title>
   <link rel="stylesheet" href="{% static 'school/app.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <a class="skip" href="#main">Bỏ qua menu</a>
 <div class="shell">
   <aside class="sidebar">

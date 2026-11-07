@@ -1,0 +1,29 @@
+<div class="comparison-grid" id="doi-chieu-tkb" aria-label="Lưới đối chiếu theo lớp, giáo viên và phòng">
+  {% for panel in comparison_panels %}
+  <section class="workbench-pane comparison-pane" data-comparison="{{ panel.key }}" aria-labelledby="comparison-{{ panel.key }}">
+    <h2 class="pane-title" id="comparison-{{ panel.key }}">{{ panel.title }} <svg aria-hidden="true"><use href="#tb-pin"/></svg></h2>
+    <div class="comparison-filters">
+      <select aria-label="{{ panel.label }} trong {{ panel.title }}" data-comparison-primary>
+        <option value="">Chọn {{ panel.label|lower }}</option>
+        {% for value, name, active in panel.options %}<option value="{{ value }}"{% if panel.selected|lower == value|lower or not panel.selected and forloop.first %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+      <select aria-label="{{ panel.secondary_label }} trong {{ panel.title }}" data-comparison-secondary="{{ panel.secondary }}">
+        <option value="">{{ panel.secondary_label }} · Tất cả</option>
+        {% for value, name in panel.secondary_options %}<option value="{{ value }}">{{ name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="comparison-scroll" tabindex="0" role="region" aria-label="Lưới {{ panel.title }}">
+      <table class="comparison-table">
+        <thead><tr><th scope="col">Tiết</th>{% for day, name in days %}<th scope="col"{% if day.weekday == 6 %} data-sunday{% endif %}>{{ name }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for period, columns in grid %}
+        <tr{% if period == morning_periods and not forloop.last %} class="session-divider"{% endif %}>
+          <th scope="row">{{ period }}</th>
+          {% for day, entries in columns %}<td data-comparison-slot="{{ day|date:'Y-m-d' }}:{{ period }}"{% if day.weekday == 6 %} data-sunday{% endif %}></td>{% endfor %}
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <p class="comparison-status" data-comparison-status role="status"></p>
+  </section>
+  {% endfor %}
+</div>
+{{ comparison_lessons|json_script:"comparison-lessons" }}

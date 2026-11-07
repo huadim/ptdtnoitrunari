@@ -1,26 +1,11 @@
 {% extends "school/base.html" %}
 {% load static %}
 {% block title %}Thời khóa biểu tuần {{ week.monday|date:"d/m/Y" }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'school/timetable-workbench.css' %}">{% endblock %}
+{% block body_class %}timetable-workbench-page{% endblock %}
 {% block content %}
-{% if can_edit %}<script src="{% static 'school/timetable-board.js' %}" defer></script>{% endif %}
-<header class="page-head workspace-head">
-  <div>
-    <a class="back" href="{% url 'timetable' %}">← Thời khóa biểu lên lớp</a>
-    <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
-    <p>Năm học {{ week.academic_year }} <span class="badge {{ week.state }}">{{ week.get_state_display }}</span></p>
-  </div>
-  {% if can_edit %}<div class="actions"><a class="button primary" href="{% url 'timetable_plan' week.pk %}">Phân công và tự động xếp lịch</a><a class="button" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">+ Thêm tiết học</a></div>{% elif rights.plan and plan %}<a class="button" href="{% url 'timetable_plan' week.pk %}">Xem kế hoạch giảng dạy</a>{% endif %}
-</header>
-{% if rights.plan %}{% include "school/timetable_navigation.html" with on_board=True %}{% endif %}
-
-{% if week.state != 'published' %}
-  {% if can_edit or rights.duty_approve and week.state != 'draft' %}
-  <section class="card duty-flow timetable-review" aria-label="Duyệt và công bố thời khóa biểu">
-    <div><strong>Duyệt và công bố</strong><p>{% if week.state == 'draft' %}Kiểm tra các tiết đã xếp trước khi trình duyệt.{% elif week.state == 'submitted' %}Tuần này đang chờ phê duyệt.{% else %}Sau khi công bố, giáo viên có thể xem lịch dạy.{% endif %}</p></div>
-    {% include "school/transitions.html" with object=week %}
-  </section>
-  {% endif %}
-{% endif %}
+<script src="{% static 'school/timetable-board.js' %}" defer></script>
+{% include "school/timetable_toolbar.html" %}
 
 {% if can_edit and editor_open %}
 <section class="card lesson-editor" id="lesson-editor" aria-labelledby="lesson-editor-title">
@@ -56,66 +41,43 @@
 </section>
 {% endif %}
 
-<section class="card timetable-board" aria-labelledby="board-title">
-  <div class="card-head timetable-board-head">
-    <div>
-      <h2 id="board-title">Lịch lên lớp</h2>
-      <p class="hint">{{ lessons|length }} tiết hiển thị · {{ week.monday|date:"d/m" }} – {{ last_day|date:"d/m/Y" }}</p>
-    </div>
-    <nav class="actions week-pagination" aria-label="Chuyển tuần">
-      {% if previous_week %}<a class="button" href="{% url 'week' previous_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}">← Tuần trước</a>{% endif %}
-      <a class="button" href="{% url 'timetable' %}">Chọn tuần</a>
-      {% if next_week %}<a class="button" href="{% url 'week' next_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}">Tuần sau →</a>{% endif %}
-    </nav>
-  </div>
-  <form method="get" class="timetable-filters">
-    {% if list_view %}<input type="hidden" name="view" value="list">{% endif %}
-    {% if board_scope %}<input type="hidden" name="scope" value="{{ board_scope }}">{% endif %}
-    {% for key, label, options in choices %}
-    <label>{{ label }}
-      <select name="{{ key }}">
-        <option value="">Tất cả</option>
-        {% for value, name, selected in options %}<option value="{{ value }}"{% if selected %} selected{% endif %}>{{ name }}</option>{% endfor %}
-      </select>
-    </label>
-    {% endfor %}
-    <div class="actions"><button class="primary">Áp dụng</button>{% if export_query %}<a href="{% url 'week' week.pk %}{% if list_view %}?view=list{% endif %}">Bỏ lọc</a>{% endif %}</div>
-  </form>
-  <nav class="resource-tabs" aria-label="Chọn phạm vi thời khóa biểu">
-    {% for key, label, query in board_tabs %}<a href="{% url 'week' week.pk %}{% if query %}?{{ query }}{% endif %}#board-title" {% if key == board_scope %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-  </nav>
-  {% if resource_options or planned_count != None %}
-  <div class="timetable-inspector">
-    {% if resource_options %}<aside class="resource-picker" aria-label="Danh sách đối tượng">
-      <strong>Chọn {% if board_scope == 'class' %}lớp{% elif board_scope == 'teacher' %}giáo viên{% else %}phòng{% endif %}</strong>
-      <div class="resource-list">
-        {% for name, active, query in resource_options %}<a href="?{{ query }}#board-title" {% if active %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}
+<section class="timetable-workbench" aria-labelledby="board-title" data-timetable-workbench data-week-url="{{ screen_url }}"{% if selected_lesson %} data-lesson-selected{% endif %}>
+  <div class="workbench-upper">
+    <aside class="workbench-pane resource-pane" aria-label="Danh mục lớp, giáo viên và phòng">
+      <nav class="workbench-resource-tabs" aria-label="Chọn phạm vi thời khóa biểu">
+        {% for key, label, query in board_tabs %}<a href="{% url 'week' week.pk %}?{{ query }}#board-title"{% if key == board_scope %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+      </nav>
+      <div class="workbench-resource-content">
+        <h2>{% if board_scope == 'class' %}Lớp học{% elif board_scope == 'teacher' %}Giáo viên{% elif board_scope == 'room' %}Phòng học{% else %}Toàn trường{% endif %}</h2>
+        <div class="workbench-resource-list">
+          {% for name, active, query in resource_options %}<a href="?{{ query }}#board-title"{% if active %} aria-current="page"{% endif %}>{{ name }}</a>
+          {% empty %}<p class="hint">{% if board_scope %}Chưa có dữ liệu trong phạm vi này.{% else %}Chọn một danh mục để xem theo đối tượng.{% endif %}</p>{% endfor %}
+        </div>
       </div>
-    </aside>{% endif %}
-    {% if planned_count != None %}<div class="schedule-progress">
-      <div><strong>{{ planned_count }}</strong><span>tiết theo phân công</span></div>
-      <div><strong>{{ lessons|length }}</strong><span>tiết trên lịch</span></div>
-      <div><strong>{{ missing_count }}</strong><span>tiết còn thiếu</span></div>
-      {% if remaining_rows %}<details><summary>Phân công chưa đủ tiết</summary><ul>{% for classroom, subject, teacher, missing in remaining_rows %}
-        <li>{{ subject }} · {{ classroom }} · {{ teacher }} · còn {{ missing }} tiết</li>{% endfor %}</ul></details>{% endif %}
-    </div>{% endif %}
-  </div>
-  {% endif %}
-  <div class="timetable-tools">
-    <nav class="view-toggle" aria-label="Dạng xem thời khóa biểu">
-      <a href="{% url 'week' week.pk %}{% if export_query %}?{{ export_query }}{% endif %}" {% if not list_view %}aria-current="page"{% endif %}>Lưới tuần</a>
-      <a href="?{% if export_query %}{{ export_query }}&amp;{% endif %}view=list" {% if list_view %}aria-current="page"{% endif %}>Danh sách</a>
-    </nav>
-    <div class="actions exports" aria-label="Xuất thời khóa biểu">
-      <a class="button" href="{% url 'timetable_export' week.pk 'pdf' %}{% if export_query %}?{{ export_query }}{% endif %}">In PDF A4</a>
-      <a class="button" href="{% url 'timetable_export' week.pk 'docx' %}{% if export_query %}?{{ export_query }}{% endif %}">Word</a>
-      <a class="button" href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Excel</a>
-    </div>
-  </div>
-
-  {% if not lessons %}
-    <p class="timetable-empty">{% if export_query %}Không có tiết học phù hợp với bộ lọc.{% elif can_edit %}Chưa có tiết học. Chọn một ô hoặc bấm Thêm tiết học để bắt đầu.{% else %}Chưa có tiết học trong phạm vi của bạn cho tuần này.{% endif %}</p>
-  {% endif %}
+    </aside>
+    <div class="workbench-pane main-pane">
+      <div class="main-pane-bar">
+        <h2 id="board-title">Lịch lên lớp <span>{{ lessons|length }} tiết</span></h2>
+        <nav aria-label="Dạng xem thời khóa biểu">
+          <a href="{% url 'week' week.pk %}{% if grid_query %}?{{ grid_query }}{% endif %}#board-title" title="Lưới tuần" aria-label="Lưới tuần"{% if not list_view %} aria-current="page"{% endif %}><svg aria-hidden="true"><use href="#tb-grid"/></svg></a>
+          <a href="?{% if grid_query %}{{ grid_query }}&amp;{% endif %}view=list#board-title" title="Danh sách" aria-label="Danh sách"{% if list_view %} aria-current="page"{% endif %}><svg aria-hidden="true"><use href="#tb-list"/></svg></a>
+        </nav>
+        <details class="workbench-filter">
+          <summary><svg aria-hidden="true"><use href="#tb-filter"/></svg> Bộ lọc{% if export_query %} · đang lọc{% endif %}</summary>
+          <form method="get" class="timetable-filters">
+            {% if list_view %}<input type="hidden" name="view" value="list">{% endif %}
+            <input type="hidden" name="scope" value="{{ board_scope }}">
+            {% for key, label, options in choices %}
+            <label>{{ label }}
+              <select name="{{ key }}"><option value="">Tất cả</option>
+                {% for value, name, selected in options %}<option value="{{ value }}"{% if selected %} selected{% endif %}>{{ name }}</option>{% endfor %}
+              </select>
+            </label>
+            {% endfor %}
+            <div class="actions"><button class="primary">Áp dụng</button>{% if export_query %}<a href="{% url 'week' week.pk %}{% if list_view %}?view=list{% endif %}#board-title">Bỏ lọc</a>{% endif %}</div>
+          </form>
+        </details>
+      </div>
   {% if list_view %}
   <div class="table-wrap" tabindex="0" role="region" aria-label="Danh sách tiết học">
     <table><thead><tr><th scope="col">Ngày</th><th scope="col">Tiết</th><th scope="col">Lớp</th><th scope="col">Môn học</th><th scope="col">Giáo viên</th><th scope="col">Phòng</th>{% if can_edit %}<th scope="col">Thao tác</th>{% endif %}</tr></thead>
@@ -126,21 +88,20 @@
     </table>
   </div>
   {% else %}
-  <p class="hint grid-hint">{% if can_edit %}Kéo tiết vào ô khác để xem vị trí đề xuất. Dùng Sửa tiết nếu thao tác bằng bàn phím hoặc điện thoại. {% endif %}Trên màn hình nhỏ, cuộn ngang hoặc chọn Danh sách.</p>
   <div class="table-wrap timetable-scroll" tabindex="0" role="region" aria-label="Lưới lịch học theo ngày và tiết">
     <table class="timetable-grid">
       <thead><tr>
         <th scope="col">Tiết</th>
         {% for day, name in days %}
-        <th scope="col"{% if day == today %} class="today-column"{% endif %}>{{ name }} <time datetime="{{ day|date:'Y-m-d' }}">{{ day|date:"d/m" }}</time>{% if day == today %}<span class="sr-only">, hôm nay</span>{% endif %}</th>
+        <th scope="col"{% if day.weekday == 6 %} data-sunday{% endif %}{% if day == today %} class="today-column"{% endif %}>{{ name }} <time datetime="{{ day|date:'Y-m-d' }}">{{ day|date:"d/m" }}</time>{% if day == today %}<span class="sr-only">, hôm nay</span>{% endif %}</th>
         {% endfor %}
       </tr></thead>
       <tbody>
         {% for period, columns in grid %}
-        <tr>
+        <tr{% if period == morning_periods and not forloop.last %} class="session-divider"{% endif %}>
           <th scope="row">{{ period }}</th>
           {% for day, entries in columns %}
-          <td{% if day.weekday >= 5 %} class="weekend-cell"{% endif %}{% if can_edit %} data-target-day="{{ day|date:'Y-m-d' }}" data-target-period="{{ period }}"{% endif %}>
+          <td{% if day.weekday == 6 %} data-sunday{% endif %}{% if day.weekday >= 5 %} class="weekend-cell"{% endif %}{% if can_edit %} data-target-day="{{ day|date:'Y-m-d' }}" data-target-period="{{ period }}"{% endif %}>
             {% for lesson in entries %}
               <div class="lesson-entry{% if selected_lesson.pk == lesson.pk %} selected{% endif %}">
               {% if can_edit %}<a class="lesson-tile" draggable="true" data-drag-lesson href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor">{% else %}<div class="lesson-tile">{% endif %}
@@ -153,7 +114,7 @@
             {% endfor %}
             {% if can_edit %}
               <a class="add-cell{% if entries %} with-lessons{% endif %}" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}day={{ day|date:'Y-m-d' }}&amp;period={{ period }}#lesson-editor" aria-label="Thêm tiết {{ period }} ngày {{ day|date:'d/m/Y' }}"><span aria-hidden="true">+</span></a>
-            {% elif not entries %}<span class="empty-cell" aria-hidden="true">—</span>{% endif %}
+            {% elif not entries %}<span class="empty-cell" aria-hidden="true"></span>{% endif %}
           </td>
           {% endfor %}
         </tr>
@@ -162,23 +123,19 @@
     </table>
   </div>
   {% endif %}
-</section>
-{% if related %}
-<section class="card" id="lien-quan" aria-labelledby="related-title">
-  <div class="card-head"><h2 id="related-title">Lịch liên quan đến tiết đang chọn</h2><a href="{{ screen_url }}#board-title">Bỏ chọn</a></div>
-  <p class="hint">{{ selected_lesson.subject }} · {{ selected_lesson.date|date:"d/m" }} · Tiết {{ selected_lesson.period }}</p>
-  <div class="related-schedules">
-    {% for label, name, entries in related %}
-    <section>
-      <span class="eyebrow">{{ label }}</span><h3>{{ name }}</h3>
-      <ul>{% for entry in entries %}<li{% if selected_lesson.pk == entry.pk %} class="active"{% endif %}>
-        <time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date|date:"d/m" }}</time>
-        <strong>Tiết {{ entry.period }} · {{ entry.subject }}</strong>
-        <small>{{ entry.classroom }} · {{ entry.room }} · {{ entry.teacher.name }}</small>
-      </li>{% endfor %}</ul>
-    </section>
-    {% endfor %}
+      {% if not lessons %}<p class="workbench-empty">{% if export_query %}Không có tiết học phù hợp với bộ lọc.{% elif can_edit %}Lưới đang trống. Chọn một ô để thêm tiết hoặc mở Xếp tự động.{% else %}Chưa có tiết học trong phạm vi của bạn.{% endif %}</p>{% endif %}
+    </div>
+    {% include "school/timetable_quick.html" %}
   </div>
+  {% include "school/timetable_comparison.html" %}
 </section>
+{% if week.state != 'published' %}
+  {% if can_edit or rights.duty_approve and week.state != 'draft' %}
+  <section class="card duty-flow timetable-review" id="duyet-tkb" aria-label="Duyệt và công bố thời khóa biểu">
+    <div><strong>Duyệt và công bố</strong><p>{% if week.state == 'draft' %}Kiểm tra các tiết đã xếp trước khi trình duyệt.{% elif week.state == 'submitted' %}Tuần này đang chờ phê duyệt.{% else %}Sau khi công bố, giáo viên có thể xem lịch dạy.{% endif %}</p></div>
+    {% include "school/transitions.html" with object=week %}
+  </section>
+  {% endif %}
 {% endif %}
+
 {% endblock %}

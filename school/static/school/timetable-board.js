@@ -1,3 +1,73 @@
+const workbench = document.querySelector("[data-timetable-workbench]");
+
+if (workbench) {
+  const sundayToggle = document.querySelector("[data-toggle-sunday]");
+  if (sundayToggle) {
+    document.querySelector("[data-sunday-control]").hidden = false;
+    const showSunday = () => workbench.classList.toggle("hide-sunday", !sundayToggle.checked);
+    sundayToggle.addEventListener("change", showSunday);
+    showSunday();
+  }
+
+  const quickTabs = workbench.querySelector("[data-quick-tabs]");
+  const quickButtons = [...quickTabs.querySelectorAll("[data-quick-tab]")];
+  const quickSections = [...workbench.querySelectorAll("[data-quick-section]")];
+  const openQuickSection = (section) => {
+    quickButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.quickTab === section)));
+    quickSections.forEach((panel) => { panel.hidden = panel.dataset.quickSection !== section; });
+  };
+  quickTabs.hidden = false;
+  const quickSectionForHash = () => {
+    if (window.location.hash === "#thong-ke-tkb") return "stats";
+    if (window.location.hash === "#huong-dan-tkb") return "help";
+    return workbench.hasAttribute("data-lesson-selected") ? "lesson" : "stats";
+  };
+  openQuickSection(quickSectionForHash());
+  window.addEventListener("hashchange", () => openQuickSection(quickSectionForHash()));
+  quickButtons.forEach((button) => button.addEventListener("click", () => openQuickSection(button.dataset.quickTab)));
+  document.querySelectorAll("[data-open-quick]").forEach((link) => {
+    link.addEventListener("click", () => openQuickSection(link.dataset.openQuick));
+  });
+
+  const lessons = JSON.parse(document.getElementById("comparison-lessons").textContent);
+  for (const panel of workbench.querySelectorAll("[data-comparison]")) {
+    const primaryKey = panel.dataset.comparison;
+    const primary = panel.querySelector("[data-comparison-primary]");
+    const secondary = panel.querySelector("[data-comparison-secondary]");
+    const status = panel.querySelector("[data-comparison-status]");
+    const cells = new Map([...panel.querySelectorAll("[data-comparison-slot]")].map((cell) => [cell.dataset.comparisonSlot, cell]));
+
+    const render = () => {
+      cells.forEach((cell) => cell.replaceChildren());
+      const selected = primary.value.toLocaleLowerCase("vi");
+      const filter = secondary.value.toLocaleLowerCase("vi");
+      const visible = lessons.filter((lesson) => lesson[primaryKey].toLocaleLowerCase("vi") === selected &&
+        (!filter || lesson[secondary.dataset.comparisonSecondary].toLocaleLowerCase("vi") === filter));
+      for (const lesson of visible) {
+        const cell = cells.get(`${lesson.day}:${lesson.period}`);
+        if (!cell) continue;
+        const link = document.createElement("a");
+        const url = new URL(workbench.dataset.weekUrl, window.location.href);
+        url.searchParams.set("focus", lesson.id);
+        url.hash = "lien-quan";
+        link.href = url.href;
+        link.className = "comparison-lesson";
+        link.title = `${lesson.subject} · ${lesson.class} · ${lesson.teacherName} · ${lesson.room}`;
+        const subject = document.createElement("strong");
+        subject.textContent = lesson.subject;
+        const detail = document.createElement("small");
+        detail.textContent = primaryKey === "class" ? lesson.teacherName : lesson.class;
+        link.append(subject, detail);
+        cell.append(link);
+      }
+      status.textContent = selected ? `${visible.length} tiết trên lưới` : "Chọn đối tượng để xem lịch.";
+    };
+    primary.addEventListener("change", render);
+    secondary.addEventListener("change", render);
+    render();
+  }
+}
+
 const schedule = document.querySelector(".timetable-grid");
 
 if (schedule) {

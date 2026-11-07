@@ -1,0 +1,42 @@
+<aside class="workbench-pane quick-pane" id="lien-quan" aria-labelledby="quick-title" data-quick-pane>
+  <h2 class="pane-title" id="quick-title">Xem nhanh <svg aria-hidden="true"><use href="#tb-pin"/></svg></h2>
+  <div class="quick-layout">
+    <div class="quick-content">
+      <section data-quick-section="lesson">
+        {% if selected_lesson %}
+        <h3>Lịch liên quan đến tiết đang chọn</h3>
+        <strong>{{ selected_lesson.subject }}</strong>
+        <dl class="quick-lesson">
+          <dt>Ngày</dt><dd>{{ selected_lesson.date|date:"d/m/Y" }} · Tiết {{ selected_lesson.period }}</dd>
+          <dt>Lớp</dt><dd>{{ selected_lesson.classroom }}</dd>
+          <dt>Giáo viên</dt><dd>{{ selected_lesson.teacher.name }}</dd>
+          <dt>Phòng</dt><dd>{{ selected_lesson.room }}</dd>
+        </dl>
+        {% if can_edit %}<a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ selected_lesson.pk }}#lesson-editor">Sửa tiết</a> · {% endif %}
+        <a href="{{ screen_url }}#board-title">Bỏ chọn</a>
+        {% else %}
+        <h3>Tiết đang chọn</h3><p class="hint">Chọn một tiết hoặc bấm Xem liên quan để đối chiếu lịch của lớp, giáo viên và phòng.</p>
+        {% endif %}
+      </section>
+      <section id="thong-ke-tkb" data-quick-section="stats">
+        <h3>Thống kê thời khóa biểu</h3>
+        <dl class="quick-stats">
+          <div><dt>Tiết theo phân công</dt><dd>{{ planned_count|default_if_none:"—" }}</dd></div>
+          <div><dt>Tiết đang hiển thị</dt><dd>{{ lessons|length }}</dd></div>
+          <div><dt>Tiết còn thiếu</dt><dd>{{ missing_count|default_if_none:"—" }}</dd></div>
+        </dl>
+        {% if remaining_rows %}<details><summary>Phân công chưa đủ tiết</summary><ul>{% for classroom, subject, teacher, missing in remaining_rows %}
+          <li>{{ classroom }} · {{ subject }} · {{ teacher }} · còn {{ missing }} tiết</li>{% endfor %}</ul></details>{% endif %}
+      </section>
+      <section id="huong-dan-tkb" data-quick-section="help">
+        <h3>Trợ giúp</h3><p class="hint">Chọn lớp, giáo viên hoặc phòng ở bên trái để lọc lưới chính. Ba lưới bên dưới có bộ lọc riêng.</p>
+        {% if can_edit %}<p class="hint">Chọn dấu cộng để thêm tiết. Kéo một tiết sang ô khác để xem vị trí đề xuất, sau đó lưu nếu phù hợp.</p>{% endif %}
+      </section>
+    </div>
+    <nav class="quick-tabs" aria-label="Công cụ xem nhanh" hidden data-quick-tabs>
+      <button type="button" data-quick-tab="lesson" aria-pressed="true">Xem nhanh</button>
+      <button type="button" data-quick-tab="stats" aria-pressed="false">Thống kê</button>
+      <button type="button" data-quick-tab="help" aria-pressed="false">Trợ giúp</button>
+    </nav>
+  </div>
+</aside>

@@ -48,10 +48,10 @@ def scoped_lessons(request, week):
 def schedule_board(request, rows, all_lessons, requirements, filters, choices, selected):
     """Build the resource navigator and related schedules from the user's visible scope."""
     scope_keys = {key for key, _, _ in FILTERS}
-    scope = request.GET.get("scope", "")
-    if scope not in scope_keys:
-        scope = next(iter(filters), "")
-    tabs = [("", "Toàn trường", ""), *[(key, label, urlencode({"scope": key})) for key, _, label in FILTERS]]
+    scope = request.GET.get("scope")
+    if scope not in scope_keys | {""}:
+        scope = next(iter(filters), "class")
+    tabs = [("", "Toàn trường", "scope="), *[(key, label, urlencode({"scope": key})) for key, _, label in FILTERS]]
     resource_options = []
     if scope:
         for key, _, options in choices:
@@ -83,9 +83,25 @@ def schedule_board(request, rows, all_lessons, requirements, filters, choices, s
                 ("Phòng học", selected.room, "room", selected.room),
             )
         ]
+    subjects = sorted({entry.subject for entry in (*all_lessons, *(requirements or ()))}, key=str.casefold)
+    class_options = [(value, name) for value, name, _ in choices[0][2]]
+    comparison_panels = []
+    for (key, label, options), field in zip(choices, ("classroom", "teacher", "room")):
+        selected_value = (selected.teacher.code if key == "teacher" else getattr(selected, field)) if selected else filters.get(key)
+        comparison_panels.append({
+            "key": key, "title": "TKB " + {"class": "lớp học", "teacher": "giáo viên", "room": "phòng học"}[key],
+            "label": label, "options": options, "selected": selected_value,
+            "secondary": "subject" if key == "class" else "class",
+            "secondary_label": "Môn học" if key == "class" else "Lớp học",
+            "secondary_options": [(name, name) for name in subjects] if key == "class" else class_options,
+        })
+    comparison_lessons = [{"id": lesson.pk, "day": lesson.date.isoformat(), "period": lesson.period,
+                           "class": lesson.classroom, "subject": lesson.subject, "room": lesson.room,
+                           "teacher": lesson.teacher.code, "teacherName": lesson.teacher.name} for lesson in all_lessons]
     return {"board_scope": scope, "board_tabs": tabs, "resource_options": resource_options,
             "planned_count": planned, "remaining_rows": remaining[:30], "missing_count": sum(item[-1] for item in remaining),
-            "related": related, "selected_lesson": selected}
+            "related": related, "selected_lesson": selected, "comparison_panels": comparison_panels,
+            "comparison_lessons": comparison_lessons}
 
 
 @school_view
@@ -114,9 +130,9 @@ def week_detail(request, pk):
     can_edit = request.rights["plan"] and week.state == State.DRAFT
     filters = filter_values(request)
     list_view = request.GET.get("view") == "list"
-    scope = request.GET.get("scope", "")
-    screen_query = urlencode({**filters, **({"view": "list"} if list_view else {}),
-                              **({"scope": scope} if scope in {"class", "teacher", "room"} else {})})
+    scope = request.GET.get("scope")
+    grid_params = {**filters, **({"scope": scope} if scope in {"", "class", "teacher", "room"} else {})}
+    screen_query = urlencode({**grid_params, **({"view": "list"} if list_view else {})})
     week_url = reverse("week", args=[pk])
     screen_url = f"{week_url}?{screen_query}" if screen_query else week_url
     form, edit_id = None, None
@@ -148,7 +164,7 @@ def week_detail(request, pk):
     plan = TimetablePlan.objects.filter(week=week).first()
     configured_periods = plan.morning + plan.afternoon if plan else 5
     grid = [(period, [(day, cells[day, period]) for day in days])
-            for period in range(1, max(configured_periods, max((lesson.period for lesson in rows), default=0)) + 1)]
+            for period in range(1, max(configured_periods, max((lesson.period for lesson in all_lessons), default=0)) + 1)]
 
     choices = []
     visible_requirements = list(employee_scope(request, plan.requirements.select_related("teacher"),
@@ -192,14 +208,16 @@ def week_detail(request, pk):
         editor_open = bool(item or "day" in request.GET or "add" in request.GET)
 
     weeks = visible_weeks(request)
-    selected_lesson = next((lesson for lesson in rows if str(lesson.pk) == request.GET.get("focus")), None)
+    selected_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("focus")), None)
+    show_sunday = bool(plan and "6" in plan.days) or any(lesson.date.weekday() == 6 for lesson in all_lessons)
     return page(request, "week", week=week, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
                 last_day=days[-1],
                 lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open,
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),
                 next_week=weeks.filter(monday__gt=week.monday).order_by("monday").first(),
-                choices=choices, list_view=list_view, export_query=urlencode(filters),
+                choices=choices, list_view=list_view, export_query=urlencode(filters), grid_query=urlencode(grid_params),
                 screen_query=screen_query, screen_url=screen_url, today=localdate(), plan=plan,
+                morning_periods=plan.morning if plan else 5, show_sunday=show_sunday,
                 move_preview=move_preview, move_errors=move_errors,
                 **schedule_board(request, rows, all_lessons, visible_requirements, filters, choices, selected_lesson))
 

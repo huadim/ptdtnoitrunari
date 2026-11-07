@@ -1,0 +1,141 @@
+.timetable-workbench-page {
+  --bench-line: #c9d1db;
+  --bench-blue: #20559a;
+  --bench-fill: #f5f7fa;
+  background: #e9edf2;
+  color: #233247;
+  font-size: 13px;
+}
+.timetable-workbench-page .shell { display: block; }
+.timetable-workbench-page .sidebar { display: none; }
+.timetable-workbench-page .shell main { max-width: none; padding: 0; }
+.timetable-workbench-page .alerts, .timetable-workbench-page .lesson-editor { margin: 8px; }
+.workbench-header, .workbench-pane { background: #fff; }
+.workbench-header svg, .workbench-pane svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.workbench-titlebar, .workbench-menu, .workbench-commands {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--bench-line);
+}
+.workbench-titlebar { gap: 7px 12px; padding-block: 6px; background: #eaf1fa; }
+.workbench-titlebar h1 { font-size: .95rem; margin: 0 0 0 auto; letter-spacing: 0; }
+.workbench-brand { color: #153f77; text-decoration: none; font-weight: 750; }
+.workbench-brand span, .workbench-year { color: #526379; }
+.workbench-titlebar .badge { padding: 1px 7px; }
+.workbench-menu details, .workbench-commands details, .workbench-filter { position: relative; }
+.workbench-menu > a, .workbench-menu summary, .workbench-commands > a, .workbench-commands summary, .workbench-week-links a, .workbench-filter summary {
+  display: flex; align-items: center; gap: 5px; min-height: 29px; padding: 3px 7px; margin: 0; color: #273d59; font-weight: 600; text-decoration: none;
+}
+.workbench-header summary, .workbench-filter summary { list-style: none; }
+.workbench-header summary::-webkit-details-marker, .workbench-filter summary::-webkit-details-marker { display: none; }
+.workbench-header a:hover, .workbench-header summary:hover, .workbench-header details[open] > summary, .workbench-filter summary:hover { background: #e3eeff; }
+.workbench-header details > div, .workbench-filter form {
+  position: absolute; top: 100%; left: 0; z-index: 5; min-width: max-content; margin: 0; padding: 4px;
+  background: #fff; border: 1px solid #aabbd1; box-shadow: 0 4px 12px #223a5920;
+}
+.workbench-menu details:nth-last-child(2) > div { left: auto; right: 0; }
+.workbench-header details > div a, .workbench-header details > div button, .workbench-header details label {
+  display: flex; align-items: center; gap: 5px; padding: 5px 9px; width: 100%; min-height: 28px; justify-content: flex-start;
+  text-align: start; text-decoration: none; color: #243e60; border: 0; border-radius: 0; font-weight: 500;
+}
+.workbench-header details label[hidden] { display: none; }
+.workbench-commands { gap: 3px; padding-block: 3px; background: #f8fafc; }
+.workbench-commands svg { width: 20px; height: 20px; color: #2564a8; }
+.workbench-commands .command-solve svg { color: #b45f16; fill: #ffe0a5; }
+.workbench-week-links { display: flex; margin-left: auto; gap: 2px; border-left: 1px solid var(--bench-line); }
+
+.timetable-workbench { padding: 4px; display: grid; gap: 4px; }
+.workbench-upper { display: grid; gap: 4px; grid-template-columns: minmax(135px, 12fr) minmax(0, 63fr) minmax(200px, 25fr); align-items: stretch; }
+.workbench-pane { min-width: 0; border: 1px solid var(--bench-line); }
+.pane-title, .main-pane-bar, .workbench-resource-content h2 {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 28px; margin: 0; padding: 3px 7px;
+  font-size: .85rem; font-weight: 650; background: #f2f5f9; border-bottom: 1px solid var(--bench-line);
+}
+.pane-title svg { width: 13px; height: 13px; color: #647489; }
+.resource-pane { display: grid; grid-template-columns: 30px minmax(0, 1fr); }
+.workbench-resource-tabs, .quick-tabs { background: #f8fafc; display: flex; flex-direction: column; align-items: stretch; }
+.workbench-resource-tabs { border-right: 1px solid var(--bench-line); }
+.workbench-resource-tabs a, .quick-tabs button {
+  writing-mode: vertical-rl; min-height: auto; display: block; padding: 8px 5px; border: 0; border-bottom: 1px solid var(--bench-line); border-radius: 0;
+  text-decoration: none; color: #334760; font-size: .76rem; font-weight: 650; text-align: center; background: transparent;
+}
+.workbench-resource-tabs a { transform: rotate(180deg); border: 0; border-top: 1px solid var(--bench-line); }
+.workbench-resource-tabs a:hover, .quick-tabs button:hover, .workbench-resource-tabs a[aria-current], .quick-tabs [aria-pressed="true"] { background: #e4efff; color: #184d8c; }
+.workbench-resource-list { display: grid; max-height: 346px; overflow: auto; }
+.workbench-resource-list a, .workbench-resource-list p { padding: 5px 7px; margin: 0; overflow-wrap: anywhere; }
+.workbench-resource-list a { color: #263e5e; text-decoration: none; border-bottom: 1px solid #e9edf2; }
+.workbench-resource-list a:hover, .workbench-resource-list a[aria-current] { background: #e5effe; color: #164e90; }
+.main-pane-bar { justify-content: flex-start; }
+.main-pane-bar h2 { font-size: inherit; margin: 0 auto 0 0; }
+.main-pane-bar h2 span { color: #566d86; font-size: .73rem; font-weight: 500; white-space: nowrap; }
+.main-pane-bar nav { display: flex; }
+.main-pane-bar nav a { display: grid; place-items: center; min-width: 26px; height: 25px; color: #2a507d; }
+.main-pane-bar nav a:hover, .main-pane-bar nav a[aria-current] { background: #dceaff; }
+.workbench-filter summary { padding: 2px 5px; min-height: 25px; white-space: nowrap; }
+.workbench-filter form { left: auto; right: 0; min-width: min(580px, calc(100vw - 32px)); border-radius: 0; padding: 8px; }
+.workbench-filter select, .comparison-filters select { min-height: 27px; padding: 2px 4px; border: 1px solid #b8c3d0; border-radius: 2px; }
+.workbench-empty { margin: 0; padding: 4px 7px; color: #506379; background: #f5f8fc; }
+.main-pane > .table-wrap { margin: 0; max-height: 470px; overflow: auto; }
+.main-pane .timetable-scroll { border: 0; border-radius: 0; }
+.main-pane .timetable-grid, .comparison-table { min-width: 525px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.main-pane .timetable-grid { height: min(39vh, 440px); }
+.main-pane .timetable-grid tr > :first-child, .comparison-table tr > :first-child { width: 36px; text-align: center; }
+.timetable-workbench table th, .timetable-workbench table td { border-color: var(--bench-line); }
+.main-pane .timetable-grid thead th, .comparison-table thead th { padding: 4px 2px; background: #fff; color: #243348; text-align: center; font-size: .74rem; }
+.main-pane .timetable-grid thead th.today-column { background: #e3efff; }
+.main-pane .timetable-grid thead th time { font-size: .67rem; }
+.main-pane .timetable-grid tbody th, .comparison-table tbody th { background: #f1f4f8; color: #384c63; }
+.main-pane .timetable-grid td, .comparison-table td { padding: 0; height: 36px; background: var(--bench-fill); }
+.main-pane .timetable-grid td:has(.lesson-entry) { padding: 2px; }
+.main-pane .timetable-grid .lesson-tile { padding: 3px 4px; border-radius: 2px; }
+.main-pane .timetable-grid .lesson-tile small, .main-pane .timetable-grid .related-link { font-size: .68rem; }
+.main-pane .add-cell { min-height: 35px; border: 0; border-radius: 0; }
+.main-pane .add-cell.with-lessons { min-height: 19px; }
+.main-pane .add-cell:not(:hover, :focus-visible) span { opacity: .3; }
+.main-pane .empty-cell { min-height: 35px; }
+.timetable-workbench table .session-divider > * { border-bottom: 2px solid #5f86c1; }
+.timetable-workbench.hide-sunday [data-sunday] { display: none; }
+
+.quick-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.quick-content { padding: 8px; max-height: 420px; overflow: auto; }
+.quick-content section + section:not([hidden]) { margin-top: 10px; }
+.quick-content h3 { margin: 0 0 5px; font-size: .85rem; }
+.quick-tabs { border-left: 1px solid var(--bench-line); }
+.quick-tabs[hidden] { display: none; }
+.quick-lesson { display: grid; grid-template-columns: auto 1fr; gap: 4px 9px; }
+.quick-lesson dd { margin: 0; overflow-wrap: anywhere; }
+.quick-stats { margin: 0 0 8px; display: grid; gap: 3px; }
+.quick-stats div { display: flex; justify-content: space-between; gap: 4px; padding: 4px 6px; background: #f0f5fc; }
+.quick-stats dd { margin: 0; font-weight: 750; color: #164d8f; }
+.quick-content ul { padding-left: 16px; }
+
+.comparison-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.comparison-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
+.comparison-scroll { overflow: auto; max-height: 370px; border-top: 1px solid var(--bench-line); }
+.comparison-table { min-width: 340px; height: min(32vh, 350px); }
+.comparison-table th, .comparison-table td { border-right: 1px solid var(--bench-line); border-bottom: 1px solid var(--bench-line); }
+.comparison-table tr > :last-child { border-right: 0; }
+.comparison-table tbody th { padding: 4px 0; }
+.comparison-table td { height: 31px; }
+.comparison-lesson { display: block; padding: 2px 3px; margin: 2px; background: #e2edfb; border-left: 2px solid #6593ce; text-decoration: none; line-height: 1.2; }
+.comparison-lesson strong, .comparison-lesson small { display: block; overflow-wrap: anywhere; font-size: .66rem; }
+.comparison-lesson:hover { background: #cfe2fc; }
+.comparison-status { min-height: 20px; padding: 2px 6px; margin: 0; color: #526379; font-size: .72rem; }
+.timetable-workbench-page .timetable-review { margin: 4px; }
+
+@media (max-width: 940px) {
+  .workbench-upper { grid-template-columns: 120px minmax(0, 1fr); }
+  .quick-pane { grid-column: 1 / -1; }
+  .quick-content { max-height: 220px; }
+}
+@media (max-width: 650px) {
+  .workbench-titlebar h1 { margin-left: 0; }
+  .workbench-week-links { margin-left: 0; }
+  .workbench-upper, .comparison-grid { grid-template-columns: minmax(0, 1fr); }
+  .resource-pane { grid-template-columns: minmax(0, 1fr); }
+  .workbench-resource-tabs, .quick-tabs { flex-direction: row; flex-wrap: wrap; border: 0; }
+  .workbench-resource-tabs a, .quick-tabs button { writing-mode: horizontal-tb; transform: none; padding: 5px 7px; border: 0; }
+  .workbench-resource-content h2 { display: none; }
+  .workbench-resource-list { display: flex; flex-wrap: wrap; max-height: 105px; }
+  .workbench-resource-list a { padding: 4px 6px; }
+  .quick-layout { display: flex; flex-direction: column-reverse; }
+  .workbench-filter form { grid-template-columns: 1fr 1fr; }
+}

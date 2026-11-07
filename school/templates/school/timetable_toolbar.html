@@ -1,0 +1,66 @@
+<svg class="sr-only" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="tb-folder" viewBox="0 0 24 24"><path d="M3 7V5h6l2 2h10v12H3z"/><path d="M3 9h18"/></symbol>
+  <symbol id="tb-add" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zM14 3v6h5m-7 2v7m-3-3.5h6"/></symbol>
+  <symbol id="tb-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6zM17 12h1"/></symbol>
+  <symbol id="tb-bolt" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></symbol>
+  <symbol id="tb-grid" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M3 14h18M9 9v11m6-11v11"/></symbol>
+  <symbol id="tb-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.1M4 12h.1M4 18h.1"/></symbol>
+  <symbol id="tb-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="tb-pin" viewBox="0 0 24 24"><path d="m15 3 6 6-3 1-3 4v3l-8-8h3l4-3zM4 20l7-7"/></symbol>
+</svg>
+<header class="workbench-header">
+  <div class="workbench-titlebar">
+    <a href="{% url 'timetable' %}" class="workbench-brand">EDUSCHOOL <span>·</span> Thời khóa biểu lên lớp</a>
+    <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
+    <span class="workbench-year">Năm học {{ week.academic_year }}</span>
+    <span class="badge {{ week.state }}">{{ week.get_state_display }}</span>
+  </div>
+  <nav class="workbench-menu" aria-label="Menu thời khóa biểu">
+    <details><summary>Hệ thống</summary><div>
+      <a href="{% url 'home' %}">Tổng quan nhà trường</a>
+      <a href="{% url 'timetable' %}">Danh sách tuần học</a>
+      <a href="{% url 'rosters' %}">Phân công lịch trực</a>
+      <a href="{% url 'attendance' %}">Chấm công và báo cáo</a>
+      <a href="{% url 'password' %}">Đổi mật khẩu</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Đăng xuất</button></form>
+    </div></details>
+    <details><summary>Dữ liệu</summary><div>
+      <a href="{% url 'timetable' %}#tao-tuan">Mở danh sách tuần</a>
+      {% if rights.plan %}<a href="{% url 'staff' %}">Danh mục nhân sự</a>{% endif %}
+      {% if rights.plan %}<a href="{% url 'timetable_plan' week.pk %}{% if plan %}#phan-cong{% endif %}">Phân công và tự động xếp lịch</a>{% endif %}
+    </div></details>
+    {% if rights.plan %}<details><summary>Ràng buộc TKB</summary><div>
+      {% if can_edit %}<a href="{% url 'timetable_plan' week.pk %}#khung-hoc">Khung học</a>{% endif %}
+      {% if plan %}<a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Giờ giáo viên bận</a>{% endif %}
+    </div></details>{% endif %}
+    {% if can_edit %}<details><summary>Soạn thảo</summary><div>
+      <a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">Thêm tiết học</a>
+      {% if plan %}<a href="{% url 'timetable_plan' week.pk %}#xep-lich">Xếp lịch tự động</a>{% endif %}
+      <a href="#duyet-tkb">Duyệt và công bố</a>
+    </div></details>{% endif %}
+    <a href="#thong-ke-tkb" data-open-quick="stats">Thống kê</a>
+    <details><summary>Xem</summary><div>
+      <a href="{% url 'week' week.pk %}{% if grid_query %}?{{ grid_query }}{% endif %}#board-title">Lưới tuần</a>
+      <a href="?{% if grid_query %}{{ grid_query }}&amp;{% endif %}view=list#board-title">Danh sách tiết học</a>
+      <a href="#doi-chieu-tkb">Lưới đối chiếu</a>
+      {% if not show_sunday %}<label hidden data-sunday-control><input type="checkbox" data-toggle-sunday> Hiện Chủ nhật</label>{% endif %}
+    </div></details>
+    <a href="#huong-dan-tkb" data-open-quick="help">Trợ giúp</a>
+  </nav>
+  <nav class="workbench-commands" aria-label="Lệnh nhanh thời khóa biểu">
+    <a href="{% url 'timetable' %}" title="Danh sách tuần học"><svg aria-hidden="true"><use href="#tb-folder"/></svg><span>Mở tuần</span></a>
+    {% if can_edit %}<a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor"><svg aria-hidden="true"><use href="#tb-add"/></svg><span>Thêm tiết</span></a>{% endif %}
+    {% if rights.plan %}<a href="{% url 'timetable_plan' week.pk %}{% if plan %}#phan-cong{% endif %}"><svg aria-hidden="true"><use href="#tb-list"/></svg><span>Phân công</span></a>{% endif %}
+    {% if can_edit and plan %}<a href="{% url 'timetable_plan' week.pk %}#xep-lich" class="command-solve"><svg aria-hidden="true"><use href="#tb-bolt"/></svg><span>Xếp tự động</span></a>{% endif %}
+    <details><summary><svg aria-hidden="true"><use href="#tb-print"/></svg><span>In và xuất ▾</span></summary><div>
+      <a href="{% url 'timetable_export' week.pk 'pdf' %}{% if export_query %}?{{ export_query }}{% endif %}">In PDF A4</a>
+      <a href="{% url 'timetable_export' week.pk 'docx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Word</a>
+      <a href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Excel</a>
+    </div></details>
+    <div class="workbench-week-links">
+      {% if previous_week %}<a href="{% url 'week' previous_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}" aria-label="Tuần trước">←</a>{% endif %}
+      <a href="{% url 'timetable' %}" aria-label="Chọn tuần">{{ week.monday|date:"d/m" }} – {{ last_day|date:"d/m" }}</a>
+      {% if next_week %}<a href="{% url 'week' next_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}" aria-label="Tuần sau">→</a>{% endif %}
+    </div>
+  </nav>
+</header>
