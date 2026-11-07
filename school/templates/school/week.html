@@ -1,14 +1,17 @@
 {% extends "school/base.html" %}
+{% load static %}
 {% block title %}Thời khóa biểu tuần {{ week.monday|date:"d/m/Y" }}{% endblock %}
 {% block content %}
+{% if can_edit %}<script src="{% static 'school/timetable-board.js' %}" defer></script>{% endif %}
 <header class="page-head workspace-head">
   <div>
     <a class="back" href="{% url 'timetable' %}">← Thời khóa biểu lên lớp</a>
     <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
     <p>Năm học {{ week.academic_year }} <span class="badge {{ week.state }}">{{ week.get_state_display }}</span></p>
   </div>
-  {% if can_edit %}<a class="button primary" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">+ Thêm tiết học</a>{% endif %}
+  {% if can_edit %}<div class="actions"><a class="button primary" href="{% url 'timetable_plan' week.pk %}">Phân công và tự động xếp lịch</a><a class="button" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">+ Thêm tiết học</a></div>{% elif rights.plan and plan %}<a class="button" href="{% url 'timetable_plan' week.pk %}">Xem kế hoạch giảng dạy</a>{% endif %}
 </header>
+{% if rights.plan %}{% include "school/timetable_navigation.html" with on_board=True %}{% endif %}
 
 {% if week.state != 'published' %}
   {% if can_edit or rights.duty_approve and week.state != 'draft' %}
@@ -25,8 +28,14 @@
     <div><span class="eyebrow">Soạn lịch lên lớp</span><h2 id="lesson-editor-title">{% if edit_id %}Chỉnh sửa tiết học{% else %}Thêm tiết học{% endif %}</h2></div>
     <a href="{{ screen_url }}">Đóng biểu mẫu</a>
   </div>
+  {% if move_preview %}
+    {% if move_errors %}
+      <div class="alert error" role="alert"><strong>Vị trí đề xuất có xung đột</strong><ul>{% for issue in move_errors %}<li>{{ issue }}</li>{% endfor %}</ul><p>Chọn ngày hoặc tiết khác trong biểu mẫu.</p></div>
+    {% else %}<p class="alert info" role="status">Đây là vị trí đề xuất. Kiểm tra thông tin rồi bấm Lưu thay đổi để xác nhận.</p>{% endif %}
+  {% endif %}
   <form method="post" action="{{ screen_url }}">
     {% csrf_token %}
+    <input type="hidden" name="revision" value="{{ week.revision }}">
     {% if edit_id %}<input type="hidden" name="id" value="{{ edit_id }}">{% endif %}
     {{ form.non_field_errors }}
     <div class="lesson-fields">
@@ -61,6 +70,7 @@
   </div>
   <form method="get" class="timetable-filters">
     {% if list_view %}<input type="hidden" name="view" value="list">{% endif %}
+    {% if board_scope %}<input type="hidden" name="scope" value="{{ board_scope }}">{% endif %}
     {% for key, label, options in choices %}
     <label>{{ label }}
       <select name="{{ key }}">
@@ -71,6 +81,26 @@
     {% endfor %}
     <div class="actions"><button class="primary">Áp dụng</button>{% if export_query %}<a href="{% url 'week' week.pk %}{% if list_view %}?view=list{% endif %}">Bỏ lọc</a>{% endif %}</div>
   </form>
+  <nav class="resource-tabs" aria-label="Chọn phạm vi thời khóa biểu">
+    {% for key, label, query in board_tabs %}<a href="{% url 'week' week.pk %}{% if query %}?{{ query }}{% endif %}#board-title" {% if key == board_scope %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  {% if resource_options or planned_count != None %}
+  <div class="timetable-inspector">
+    {% if resource_options %}<aside class="resource-picker" aria-label="Danh sách đối tượng">
+      <strong>Chọn {% if board_scope == 'class' %}lớp{% elif board_scope == 'teacher' %}giáo viên{% else %}phòng{% endif %}</strong>
+      <div class="resource-list">
+        {% for name, active, query in resource_options %}<a href="?{{ query }}#board-title" {% if active %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}
+      </div>
+    </aside>{% endif %}
+    {% if planned_count != None %}<div class="schedule-progress">
+      <div><strong>{{ planned_count }}</strong><span>tiết theo phân công</span></div>
+      <div><strong>{{ lessons|length }}</strong><span>tiết trên lịch</span></div>
+      <div><strong>{{ missing_count }}</strong><span>tiết còn thiếu</span></div>
+      {% if remaining_rows %}<details><summary>Phân công chưa đủ tiết</summary><ul>{% for classroom, subject, teacher, missing in remaining_rows %}
+        <li>{{ subject }} · {{ classroom }} · {{ teacher }} · còn {{ missing }} tiết</li>{% endfor %}</ul></details>{% endif %}
+    </div>{% endif %}
+  </div>
+  {% endif %}
   <div class="timetable-tools">
     <nav class="view-toggle" aria-label="Dạng xem thời khóa biểu">
       <a href="{% url 'week' week.pk %}{% if export_query %}?{{ export_query }}{% endif %}" {% if not list_view %}aria-current="page"{% endif %}>Lưới tuần</a>
@@ -91,12 +121,12 @@
     <table><thead><tr><th scope="col">Ngày</th><th scope="col">Tiết</th><th scope="col">Lớp</th><th scope="col">Môn học</th><th scope="col">Giáo viên</th><th scope="col">Phòng</th>{% if can_edit %}<th scope="col">Thao tác</th>{% endif %}</tr></thead>
       <tbody>{% for lesson in lessons %}
       <tr><td>{{ lesson.date|date:"d/m/Y" }}</td><td>{{ lesson.period }}</td><td>{{ lesson.classroom }}</td><td>{{ lesson.subject }}</td><td>{{ lesson.teacher.name }}</td><td>{{ lesson.room }}</td>
-      {% if can_edit %}<td><a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor" aria-label="Sửa tiết {{ lesson.period }} môn {{ lesson.subject }} lớp {{ lesson.classroom }} ngày {{ lesson.date|date:'d/m' }}">Sửa tiết</a></td>{% endif %}</tr>
+      {% if can_edit %}<td><a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor" aria-label="Sửa tiết {{ lesson.period }} môn {{ lesson.subject }} lớp {{ lesson.classroom }} ngày {{ lesson.date|date:'d/m' }}">Sửa tiết</a> · <a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}focus={{ lesson.pk }}#lien-quan">Xem liên quan</a></td>{% endif %}</tr>
       {% endfor %}</tbody>
     </table>
   </div>
   {% else %}
-  <p class="hint grid-hint">Trên màn hình nhỏ, cuộn ngang để xem các ngày hoặc chọn Danh sách.</p>
+  <p class="hint grid-hint">{% if can_edit %}Kéo tiết vào ô khác để xem vị trí đề xuất. Dùng Sửa tiết nếu thao tác bằng bàn phím hoặc điện thoại. {% endif %}Trên màn hình nhỏ, cuộn ngang hoặc chọn Danh sách.</p>
   <div class="table-wrap timetable-scroll" tabindex="0" role="region" aria-label="Lưới lịch học theo ngày và tiết">
     <table class="timetable-grid">
       <thead><tr>
@@ -110,13 +140,16 @@
         <tr>
           <th scope="row">{{ period }}</th>
           {% for day, entries in columns %}
-          <td{% if day.weekday >= 5 %} class="weekend-cell"{% endif %}>
+          <td{% if day.weekday >= 5 %} class="weekend-cell"{% endif %}{% if can_edit %} data-target-day="{{ day|date:'Y-m-d' }}" data-target-period="{{ period }}"{% endif %}>
             {% for lesson in entries %}
-              {% if can_edit %}<a class="lesson-tile" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor">{% else %}<div class="lesson-tile">{% endif %}
+              <div class="lesson-entry{% if selected_lesson.pk == lesson.pk %} selected{% endif %}">
+              {% if can_edit %}<a class="lesson-tile" draggable="true" data-drag-lesson href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor">{% else %}<div class="lesson-tile">{% endif %}
                 <strong>{{ lesson.subject }}</strong>
                 <small>Lớp {{ lesson.classroom }} · {{ lesson.room }}</small>
                 <small>{{ lesson.teacher.name }}</small>
               {% if can_edit %}</a>{% else %}</div>{% endif %}
+              <a class="related-link" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}focus={{ lesson.pk }}#lien-quan">Xem liên quan</a>
+              </div>
             {% endfor %}
             {% if can_edit %}
               <a class="add-cell{% if entries %} with-lessons{% endif %}" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}day={{ day|date:'Y-m-d' }}&amp;period={{ period }}#lesson-editor" aria-label="Thêm tiết {{ period }} ngày {{ day|date:'d/m/Y' }}"><span aria-hidden="true">+</span></a>
@@ -130,4 +163,22 @@
   </div>
   {% endif %}
 </section>
+{% if related %}
+<section class="card" id="lien-quan" aria-labelledby="related-title">
+  <div class="card-head"><h2 id="related-title">Lịch liên quan đến tiết đang chọn</h2><a href="{{ screen_url }}#board-title">Bỏ chọn</a></div>
+  <p class="hint">{{ selected_lesson.subject }} · {{ selected_lesson.date|date:"d/m" }} · Tiết {{ selected_lesson.period }}</p>
+  <div class="related-schedules">
+    {% for label, name, entries in related %}
+    <section>
+      <span class="eyebrow">{{ label }}</span><h3>{{ name }}</h3>
+      <ul>{% for entry in entries %}<li{% if selected_lesson.pk == entry.pk %} class="active"{% endif %}>
+        <time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date|date:"d/m" }}</time>
+        <strong>Tiết {{ entry.period }} · {{ entry.subject }}</strong>
+        <small>{{ entry.classroom }} · {{ entry.room }} · {{ entry.teacher.name }}</small>
+      </li>{% endfor %}</ul>
+    </section>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

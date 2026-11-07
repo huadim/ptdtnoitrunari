@@ -1,0 +1,9 @@
+<nav class="teaching-navigation" aria-label="Các bước làm thời khóa biểu">
+  {% if week.state == "draft" %}<a href="{% url 'timetable_plan' week.pk %}#khung-hoc"><span>01</span> Khung học</a>{% endif %}
+  {% if plan %}
+  <a href="{% url 'timetable_plan' week.pk %}#phan-cong"><span>02</span> Phân công</a>
+  <a href="{% url 'timetable_plan' week.pk %}#rang-buoc"><span>03</span> Ràng buộc</a>
+  <a href="{% url 'timetable_plan' week.pk %}#xep-lich"><span>04</span> Xếp tự động</a>
+  {% endif %}
+  <a href="{% url 'week' week.pk %}#board-title"{% if on_board %} aria-current="page"{% endif %}><span>05</span> Lưới lịch và in</a>
+</nav>

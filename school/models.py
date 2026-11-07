@@ -241,6 +241,7 @@ class TimetableWeek(models.Model):
     monday = models.DateField()
     academic_year = models.CharField(max_length=20)
     state = models.CharField(max_length=12, choices=State, default=State.DRAFT)
+    revision = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["school", "monday"], name="timetable_school_week")]
@@ -262,6 +263,63 @@ class Lesson(models.Model):
             models.UniqueConstraint(fields=["week", "date", "period", "teacher"], name="lesson_teacher_time"),
             models.UniqueConstraint(fields=["week", "date", "period", "room"], name="lesson_room_time"),
             models.CheckConstraint(condition=Q(period__gte=1) & Q(period__lte=15), name="lesson_period"),
+        ]
+
+
+class TimetablePlan(models.Model):
+    week = models.OneToOneField(TimetableWeek, on_delete=models.PROTECT, related_name="plan")
+    days = models.CharField(max_length=7, default="01234")
+    morning = models.PositiveSmallIntegerField(default=5)
+    afternoon = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(morning__lte=10, afternoon__lte=10) & Q(morning__lte=15 - models.F("afternoon"))
+                & (Q(morning__gt=0) | Q(afternoon__gt=0)),
+                name="teaching_plan_session_lengths",
+            ),
+        ]
+
+
+class TeachingRequirement(models.Model):
+    class Session(models.TextChoices):
+        ANY = "any", "Cả hai buổi"
+        AM = "am", "Buổi sáng"
+        PM = "pm", "Buổi chiều"
+
+    plan = models.ForeignKey(TimetablePlan, on_delete=models.PROTECT, related_name="requirements")
+    teacher = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    classroom = models.CharField(max_length=40)
+    subject = models.CharField(max_length=80)
+    room = models.CharField(max_length=40)
+    periods = models.PositiveSmallIntegerField()
+    doubles = models.PositiveSmallIntegerField(default=0)
+    session = models.CharField(max_length=3, choices=Session, default=Session.ANY)
+
+    class Meta:
+        ordering = ("classroom", "subject", "teacher_id")
+        constraints = [
+            models.UniqueConstraint(fields=["plan", "teacher", "classroom", "subject"],
+                                    name="teaching_requirement_once"),
+            models.CheckConstraint(condition=Q(periods__gte=1, periods__lte=30) & Q(periods__gte=2 * models.F("doubles")),
+                                   name="teaching_requirement_periods"),
+        ]
+
+
+class TeachingUnavailable(models.Model):
+    plan = models.ForeignKey(TimetablePlan, on_delete=models.PROTECT, related_name="unavailable")
+    teacher = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    date = models.DateField()
+    first = models.PositiveSmallIntegerField()
+    last = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ("date", "first", "teacher_id")
+        constraints = [
+            models.UniqueConstraint(fields=["plan", "teacher", "date", "first", "last"], name="teaching_unavailable_once"),
+            models.CheckConstraint(condition=Q(first__gte=1, last__lte=15, last__gte=models.F("first")),
+                                   name="teaching_unavailable_periods"),
         ]
 
 

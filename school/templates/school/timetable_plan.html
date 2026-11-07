@@ -1,0 +1,136 @@
+{% extends "school/base.html" %}
+{% block title %}Kế hoạch giảng dạy{% endblock %}
+{% block content %}
+<header class="page-head">
+  <a class="back" href="{% url 'week' week.pk %}">← Lưới thời khóa biểu</a>
+  <span class="eyebrow">Thời khóa biểu lên lớp</span>
+  <h1>Phân công và tự động xếp lịch</h1>
+  <p>Tuần từ {{ week.monday|date:"d/m/Y" }} · Năm học {{ week.academic_year }} · {{ week.get_state_display }}</p>
+</header>
+{% include "school/timetable_navigation.html" %}
+
+{% if issues %}<div class="alert error" role="alert"><strong>Kiểm tra dữ liệu</strong><ul>{% for item in issues %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="metrics">
+  <div class="metric"><span>Số tiết cần xếp</span><strong>{{ required }}</strong></div>
+  <div class="metric"><span>Số tiết đã có trên lưới</span><strong>{{ existing }}</strong></div>
+  <div class="metric"><span>Số phân công</span><strong>{{ requirements|length }}</strong></div>
+</div>
+
+{% if week.state == "draft" %}
+<section class="card" aria-labelledby="times-title" id="khung-hoc">
+  <h2 id="times-title">1. Thiết lập khung học</h2>
+  <p class="hint">Đặt số tiết bằng 0 nếu không học buổi đó. Tiết buổi chiều được đánh số tiếp theo buổi sáng.</p>
+  <form method="post" class="stack">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    <fieldset><legend>{{ plan_form.days.label }}</legend><div class="teaching-days">{{ plan_form.days }}</div></fieldset>
+    <div class="form-row">
+      <label>{{ plan_form.morning.label }}{{ plan_form.morning }}</label>
+      <label>{{ plan_form.afternoon.label }}{{ plan_form.afternoon }}</label>
+      <button class="primary" name="action" value="settings">Lưu khung học</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% if plan %}
+<section class="card" aria-labelledby="requirements-title" id="phan-cong">
+  <div class="card-head"><h2 id="requirements-title">2. Phân công giảng dạy</h2>
+    {% if week.state == "draft" %}<a class="button" href="{% url 'timetable_plan_template' week.pk %}">Tải mẫu Excel</a>{% endif %}
+  </div>
+  {% if week.state == "draft" %}
+  <details class="subsection"{% if edit %} open{% endif %}>
+    <summary>{% if edit %}Sửa phân công{% else %}Nhập phân công thủ công{% endif %}</summary>
+    <form method="post" class="form-row">
+      {% csrf_token %}{% include "school/timetable_revision.html" %}
+      {% if edit %}<input type="hidden" name="row" value="{{ edit.pk }}">{% endif %}
+      {% for field in requirement_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
+      <button class="primary" name="action" value="{% if edit %}edit{% else %}add{% endif %}">Lưu phân công</button>
+      {% if edit %}<a href="{% url 'timetable_plan' week.pk %}#phan-cong">Hủy sửa</a>{% endif %}
+    </form>
+  </details>
+  <details class="subsection"{% if import_rows %} open{% endif %}>
+    <summary>Nhập từ Excel</summary>
+    <p class="hint">Điền mã giáo viên đã có trong Nhân sự. Cột Buổi nhận “Sáng”, “Chiều” hoặc “Cả hai”. Hệ thống kiểm tra trước khi ghi.</p>
+    <form method="post" enctype="multipart/form-data" class="form-row">
+      {% csrf_token %}{% include "school/timetable_revision.html" %}
+      <label>Tệp .xlsx<input type="file" name="workbook" accept=".xlsx" required></label>
+      <button name="action" value="preview_import">Kiểm tra và xem trước</button>
+    </form>
+    {% if import_rows %}
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Xem trước dữ liệu Excel">
+      <table><thead><tr><th>Dòng</th><th>Giáo viên</th><th>Lớp</th><th>Môn</th><th>Phòng</th><th>Số tiết</th><th>Cặp tiết đôi</th><th>Buổi</th></tr></thead>
+        <tbody>{% for number, row in import_rows %}<tr><td>{{ number }}</td><td>{{ row.teacher }}</td><td>{{ row.classroom }}</td><td>{{ row.subject }}</td><td>{{ row.room }}</td><td>{{ row.periods }}</td><td>{{ row.doubles }}</td><td>{% if row.session == "am" %}Sáng{% elif row.session == "pm" %}Chiều{% else %}Cả hai{% endif %}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <form method="post" class="actions">
+      {% csrf_token %}{% include "school/timetable_revision.html" %}
+      <input type="hidden" name="token" value="{{ import_token }}">
+      <button class="primary" name="action" value="apply_import">Xác nhận nhập {{ import_rows|length }} dòng</button>
+      <a class="button" href="{% url 'timetable_plan' week.pk %}#phan-cong">Hủy xem trước</a>
+    </form>
+    {% endif %}
+  </details>
+  {% endif %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Bảng phân công giảng dạy">
+    <table><thead><tr><th>Giáo viên</th><th>Lớp</th><th>Môn</th><th>Phòng</th><th>Số tiết</th><th>Tiết đôi</th><th>Buổi</th>{% if week.state == "draft" %}<th>Thao tác</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for item in requirements %}
+          <tr><td>{{ item.teacher }}</td><td>{{ item.classroom }}</td><td>{{ item.subject }}</td><td>{{ item.room }}</td><td>{{ item.periods }}</td><td>{{ item.doubles }}</td><td>{{ item.get_session_display }}</td>
+          {% if week.state == "draft" %}<td><div class="actions">
+            <a href="?edit={{ item.pk }}#phan-cong">Sửa</a>
+            <form method="post">{% csrf_token %}{% include "school/timetable_revision.html" %}<input type="hidden" name="row" value="{{ item.pk }}"><button class="danger-button" name="action" value="remove">Xóa</button></form>
+          </div></td>{% endif %}</tr>
+        {% empty %}<tr><td colspan="8">Chưa có phân công giảng dạy.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="rules-title" id="rang-buoc">
+  <h2 id="rules-title">3. Khai báo giờ giáo viên bận</h2>
+  <p class="hint">Bộ xếp lịch còn kiểm tra ngày lễ và ngày nghỉ đã được duyệt. Các tiết đã có trên lưới được giữ nguyên.</p>
+  {% if week.state == "draft" %}<form method="post" class="form-row">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    {% for field in block_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
+    <button name="action" value="block">Thêm giờ bận</button>
+  </form>{% endif %}
+  {% for item in blocked %}<div class="list-item">
+    <span>{{ item.teacher }} · {{ item.date|date:"d/m/Y" }} · Tiết {{ item.first }}–{{ item.last }}</span>
+    {% if week.state == "draft" %}<form method="post">{% csrf_token %}{% include "school/timetable_revision.html" %}<input type="hidden" name="row" value="{{ item.pk }}"><button name="action" value="unblock">Bỏ giờ bận</button></form>{% endif %}
+  </div>{% empty %}<p class="hint">Chưa có giờ bận riêng cho tuần này.</p>{% endfor %}
+</section>
+
+<section class="card" aria-labelledby="solver-title" id="xep-lich">
+  <h2 id="solver-title">4. Xếp lịch và kiểm tra phương án</h2>
+  {% if diagnostics %}
+    <details class="subsection"><summary>Các mục cần xử lý trên lịch hiện tại</summary><ul>{% for item in diagnostics %}<li>{{ item }}</li>{% endfor %}</ul></details>
+  {% elif required %}<p class="hint">Lịch hiện tại đạt kiểm tra phân công và ràng buộc của tuần.</p>{% endif %}
+  {% if week.state == "draft" %}
+  <form method="post" action="#xep-lich" class="actions">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    <button class="primary" name="action" value="solve"{% if not required %} disabled{% endif %}>Tạo phương án CP-SAT</button>
+  </form>
+  {% endif %}
+  {% if result %}
+    <div class="subsection" role="status">
+      <p><strong>Kết quả</strong> {{ result.status }} · {{ result.seconds|floatformat:2 }} giây.</p>
+      {% if result.day_spread_cost != None %}<p class="hint">Điểm dồn môn trong ngày {{ result.day_spread_cost }}. Điểm thấp hơn tương ứng ít tiết cùng môn vượt hai tiết/ngày.</p>{% endif %}
+      {% if result.messages %}<ul>{% for item in result.messages %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  {% endif %}
+  {% if proposal %}
+  <h3>Xem trước {{ proposal|length }} tiết đề xuất</h3>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Các tiết do CP-SAT đề xuất">
+    <table><thead><tr><th>Ngày</th><th>Tiết</th><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Phòng</th></tr></thead>
+    <tbody>{% for day, row, teacher in proposal %}<tr><td>{{ day|date:"d/m/Y" }}</td><td>{{ row.period }}</td><td>{{ row.classroom }}</td><td>{{ row.subject }}</td><td>{{ teacher }}</td><td>{{ row.room }}</td></tr>{% endfor %}</tbody></table>
+  </div>
+  <form method="post" class="actions">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    <input type="hidden" name="token" value="{{ solve_token }}">
+    <button class="primary" name="action" value="apply_solve">Xác nhận đưa vào bản nháp</button>
+    <a class="button" href="{% url 'timetable_plan' week.pk %}#xep-lich">Hủy phương án</a>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

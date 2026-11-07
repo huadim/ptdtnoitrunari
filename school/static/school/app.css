@@ -225,3 +225,105 @@ a.lesson-tile:hover { background: #dcecff; }
 }
 .invite-code { font-family: ui-monospace, monospace; letter-spacing: .015em; }
 .access-card { border-left: 3px solid #1c60b0; }
+
+.teaching-days > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+.teaching-days label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.teaching-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 16px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: #183652;
+}
+.teaching-navigation a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #f4f8ff;
+  text-decoration: none;
+  font-weight: 650;
+}
+.teaching-navigation a:hover,
+.teaching-navigation a[aria-current="page"] { background: #355777; }
+.teaching-navigation a span {
+  color: #d4e9ff;
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
+}
+.resource-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #f2f6fb;
+}
+.resource-tabs a, .resource-list a {
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.resource-tabs a[aria-current="page"], .resource-list a[aria-current="page"] {
+  color: #124273;
+  background: #dcecff;
+  font-weight: 750;
+}
+.timetable-inspector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.resource-picker, .schedule-progress, .related-schedules section {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #f8fbff;
+  min-width: 0;
+}
+.resource-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 8rem; overflow: auto; }
+.schedule-progress {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.schedule-progress div { display: grid; gap: 3px; }
+.schedule-progress strong { font-size: 1.35rem; color: #17467d; }
+.schedule-progress span { color: var(--muted); font-size: .85rem; }
+.schedule-progress details { flex-basis: 100%; }
+.related-link {
+  display: inline-block;
+  margin: 1px 2px 5px;
+  font-size: .75rem;
+}
+.lesson-entry.selected .lesson-tile { outline: 2px solid #2972b9; }
+.timetable-grid td.drop-target { background: #dcedff; outline: 2px dashed #2c6da7; outline-offset: -3px; }
+.related-schedules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(215px, 100%), 1fr)); gap: 10px; }
+.related-schedules h3 { margin: 5px 0 9px; }
+.related-schedules ul { padding: 0; margin: 0; list-style: none; max-height: 16rem; overflow: auto; }
+.related-schedules li {
+  display: grid;
+  grid-template-columns: 4em 1fr;
+  gap: 3px;
+  padding: 7px;
+  border-bottom: 1px solid var(--line);
+}
+.related-schedules li small { grid-column: 2; }
+.related-schedules li.active { background: #dcecff; }
