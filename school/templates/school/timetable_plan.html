@@ -7,6 +7,7 @@
   <h1>Phân công và tự động xếp lịch</h1>
   <p>Tuần từ {{ week.monday|date:"d/m/Y" }} · Năm học {{ week.academic_year }} · {{ week.get_state_display }}</p>
 </header>
+{% include "school/timetable_navigation.html" %}
 
 {% if issues %}<div class="alert error" role="alert"><strong>Kiểm tra dữ liệu</strong><ul>{% for item in issues %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="metrics">
@@ -16,7 +17,7 @@
 </div>
 
 {% if week.state == "draft" %}
-<section class="card" aria-labelledby="times-title">
+<section class="card" aria-labelledby="times-title" id="khung-hoc">
   <h2 id="times-title">1. Thiết lập khung học</h2>
   <p class="hint">Đặt số tiết bằng 0 nếu không học buổi đó. Tiết buổi chiều được đánh số tiếp theo buổi sáng.</p>
   <form method="post" class="stack">
@@ -85,7 +86,7 @@
   </div>
 </section>
 
-<section class="card" aria-labelledby="rules-title">
+<section class="card" aria-labelledby="rules-title" id="rang-buoc">
   <h2 id="rules-title">3. Khai báo giờ giáo viên bận</h2>
   <p class="hint">Bộ xếp lịch còn kiểm tra ngày lễ và ngày nghỉ đã được duyệt. Các tiết đã có trên lưới được giữ nguyên.</p>
   {% if week.state == "draft" %}<form method="post" class="form-row">

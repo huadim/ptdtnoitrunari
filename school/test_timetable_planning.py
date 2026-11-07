@@ -173,6 +173,39 @@ class TeachingPlanTests(TestCase):
         self.week.refresh_from_db()
         self.assertEqual(self.week.state, State.DRAFT)
 
+    def test_board_resource_scope_and_move_preview_without_writing(self):
+        self.setup_plan()
+        self.client.post(self.plan_url, {"action": "add", "teacher": self.teacher.pk, "classroom": "8A", "subject": "Toán",
+                                         "room": "P1", "periods": 2, "doubles": 0, "session": "am"})
+        self.client.post(self.plan_url, {"action": "add", "teacher": self.teacher.pk, "classroom": "8B", "subject": "Văn",
+                                         "room": "P2", "periods": 1, "doubles": 0, "session": "am"})
+        item = Lesson.objects.create(week=self.week, teacher=self.teacher, classroom="8A", subject="TOÁN",
+                                     room="P1", date=self.monday, period=1)
+        other = Lesson.objects.create(week=self.week, teacher=self.teacher, classroom="8B", subject="VĂN",
+                                      room="P2", date=self.monday, period=2)
+        board = self.client.get(self.week_url, {"scope": "class", "class": "8A", "focus": item.pk})
+        self.assertEqual(board.context["planned_count"], 2)
+        self.assertEqual(board.context["missing_count"], 1)
+        self.assertEqual([entry for entry in board.context["related"][1][2]], [item, other])
+        self.assertContains(board, "Lịch liên quan đến tiết đang chọn")
+
+        preview = self.client.get(self.week_url, {"edit": item.pk, "target_day": self.monday, "target_period": 2})
+        self.assertContains(preview, "Vị trí đề xuất có xung đột")
+        self.assertContains(preview, "H03")
+        item.refresh_from_db()
+        self.assertEqual(item.period, 1)
+        self.assertEqual(preview.context["form"].initial["period"], 2)
+
+        self.week.state = State.PUBLISHED
+        self.week.save(update_fields=["state"])
+        unseen = Lesson.objects.create(week=self.week, teacher=self.office, classroom="8A", subject="Nội dung riêng",
+                                       room="P1", date=self.monday, period=3)
+        self.login(self.teacher)
+        public = self.client.get(self.week_url, {"scope": "class", "class": "8A", "focus": item.pk})
+        self.assertNotContains(public, unseen.subject)
+        self.assertNotContains(public, "data-drag-lesson")
+        self.assertIsNone(self.client.get(self.week_url, {"focus": unseen.pk}).context["selected_lesson"])
+
     @skipUnless(connection.vendor == "postgresql", "Kiểm tra trigger trên PostgreSQL")
     def test_database_rejects_a_teacher_from_another_school(self):
         plan = TimetablePlan.objects.create(week=self.week)

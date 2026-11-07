@@ -11,6 +11,8 @@
 7. Trình duyệt trên lưới tuần. Khi đã lập kế hoạch, lịch phải đủ tiết và đáp ứng các ràng buộc mới được duyệt và công bố. Người có quyền phê duyệt công bố và giáo viên nhận thông báo.
 8. Lọc theo lớp, giáo viên hoặc phòng rồi xuất PDF A4, Excel hoặc Word.
 
+Trên lưới tuần, dùng các thẻ **Toàn trường**, **Lớp**, **Giáo viên** và **Phòng** để đổi góc nhìn. Chọn **Xem liên quan** trên một tiết để xem lịch lớp, giáo viên và phòng của tiết đó. Trong bản nháp, kéo một tiết sang ô mới để mở bản xem trước. Phần mềm kiểm tra vị trí và chỉ ghi sau khi bấm **Lưu thay đổi**. Có thể mở biểu mẫu chỉnh sửa bằng bàn phím hoặc trên điện thoại.
+
 Các tuần có từ phiên bản cũ tiếp tục làm việc theo cách nhập tay. Để dùng CP-SAT trên tuần cũ ở trạng thái nháp, khai báo phân công tương ứng với các tiết cần giữ và xử lý chẩn đoán nếu dữ liệu cũ khác kế hoạch.
 
 ## Dữ liệu và xử lý
@@ -38,4 +40,4 @@ erDiagram
 
 Cài `requirements.txt`, chạy `python manage.py migrate` trên cơ sở dữ liệu kiểm thử, rồi chạy `python manage.py test`. Các ca mới dùng dữ liệu kiểm thử. Trước khi phát hành lên hệ thống đang chạy, xác minh bản sao lưu PostgreSQL và phương án phục hồi. Migration 0007 bổ sung cấu trúc kế hoạch và giữ các tuần, tiết cũ. Bộ giải chạy một luồng với ngân sách 6 giây và giới hạn 500 tiết khai báo mỗi tuần.
 
-Bản này dùng mỗi tiết cho một lớp, một giáo viên và một phòng cố định. Lớp ghép, đồng giảng, nhóm tự chọn, giờ theo phút giữa các điểm trường, quản lý nhiều phương án, AI ngôn ngữ tự nhiên và SaaS nằm ở các giai đoạn sau.
+Bản này dùng mỗi tiết cho một lớp, một giáo viên và một phòng cố định. Kéo thả chuyển một tiết tại một thời điểm. Lớp ghép, đồng giảng, nhóm tự chọn, giờ theo phút giữa các điểm trường, quản lý nhiều phương án, AI ngôn ngữ tự nhiên và SaaS nằm ở các giai đoạn sau.
