@@ -7,7 +7,7 @@
     <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
     <p>Năm học {{ week.academic_year }} <span class="badge {{ week.state }}">{{ week.get_state_display }}</span></p>
   </div>
-  {% if can_edit %}<a class="button primary" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">+ Thêm tiết học</a>{% endif %}
+  {% if can_edit %}<div class="actions"><a class="button primary" href="{% url 'timetable_plan' week.pk %}">Phân công và tự động xếp lịch</a><a class="button" href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">+ Thêm tiết học</a></div>{% elif rights.plan and plan %}<a class="button" href="{% url 'timetable_plan' week.pk %}">Xem kế hoạch giảng dạy</a>{% endif %}
 </header>
 
 {% if week.state != 'published' %}
@@ -27,6 +27,7 @@
   </div>
   <form method="post" action="{{ screen_url }}">
     {% csrf_token %}
+    <input type="hidden" name="revision" value="{{ week.revision }}">
     {% if edit_id %}<input type="hidden" name="id" value="{{ edit_id }}">{% endif %}
     {{ form.non_field_errors }}
     <div class="lesson-fields">

@@ -14,11 +14,11 @@ from .access import employee_scope, record, require, school_view
 from .common import employees, fail, page
 from .exports import document
 from .forms import LessonForm, WeekForm
-from .models import Decision, Holiday, Lesson, Request, State, TimetableWeek
+from .models import Decision, Holiday, Lesson, Notification, Request, State, TimetablePlan, TimetableWeek
+from .timetable_solver import DAY_NAMES
 
 HEADERS = ("Ngày", "Tiết", "Lớp", "Môn", "Giáo viên", "Phòng")
 FILTERS = (("class", "classroom", "Lớp"), ("teacher", "teacher__code", "Giáo viên"), ("room", "room", "Phòng"))
-DAY_NAMES = ("Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật")
 
 
 def get_week(request, pk):
@@ -100,8 +100,10 @@ def week_detail(request, pk):
     cells = defaultdict(list)
     for lesson in rows:
         cells[lesson.date, lesson.period].append(lesson)
+    plan = TimetablePlan.objects.filter(week=week).first()
+    configured_periods = plan.morning + plan.afternoon if plan else 5
     grid = [(period, [(day, cells[day, period]) for day in days])
-            for period in range(1, max(5, max((lesson.period for lesson in rows), default=0)) + 1)]
+            for period in range(1, max(configured_periods, max((lesson.period for lesson in rows), default=0)) + 1)]
 
     choices = []
     for key, _, label in FILTERS:
@@ -141,7 +143,7 @@ def week_detail(request, pk):
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),
                 next_week=weeks.filter(monday__gt=week.monday).order_by("monday").first(),
                 choices=choices, list_view=list_view, export_query=urlencode(filters),
-                screen_query=screen_query, screen_url=screen_url, today=localdate())
+                screen_query=screen_query, screen_url=screen_url, today=localdate(), plan=plan)
 
 
 def change_week(request, week, form):
@@ -155,6 +157,9 @@ def change_week(request, week, form):
     else:
         fail("Thao tác không hợp lệ.")
     rows = week.lesson_set
+    revision = request.POST.get("revision")
+    if revision is not None and revision != str(week.revision):
+        fail("Tuần đã được người khác cập nhật. Mở lại tuần trước khi lưu thay đổi.")
     if action in {"add", "edit"}:
         item = get_object_or_404(rows, pk=request.POST.get("id", "0")) if action == "edit" else None
         if not form.is_valid():
@@ -175,6 +180,20 @@ def change_week(request, week, form):
         for field, label in (("teacher", "giáo viên"), ("classroom", "lớp"), ("room", "phòng")):
             if same.filter(**{field: data[field]}).exists():
                 fail(f"Trùng {label} ở ngày và tiết đã chọn.")
+        plan = TimetablePlan.objects.filter(week=week).first()
+        if plan:
+            from .timetable_planning import problem_for, to_entry
+            from .timetable_solver import Entry, validate
+
+            problem = problem_for(week, plan)
+            old_entry = to_entry(week, item) if item else None
+            new_entry = Entry(teacher.pk, data["classroom"], data["subject"], data["room"],
+                              (date - week.monday).days, data["period"])
+            baseline = set(validate(problem, problem.fixed))
+            after = (*[entry for entry in problem.fixed if entry != old_entry], new_entry)
+            errors = [issue for issue in validate(problem, after) if issue not in baseline]
+            if errors:
+                raise ValidationError(errors)
         if item:
             rows.filter(pk=item.pk).update(**data)
         else:
@@ -202,8 +221,24 @@ def change_week(request, week, form):
                                                  slot__isnull=True, start__lte=OuterRef("date"), end__gte=OuterRef("date"))
             if rows.filter(Exists(unavailable)).exists():
                 fail("Có tiết học trùng ngày nghỉ đã được duyệt của giáo viên.")
+            plan = TimetablePlan.objects.filter(week=week).first()
+            if plan:
+                from .timetable_planning import problem_for
+                from .timetable_solver import validate
+
+                problem = problem_for(week, plan)
+                errors = validate(problem, problem.fixed, complete=True)
+                if errors:
+                    raise ValidationError(errors[:8])
         week.state = new
         week.save(update_fields=["state"])
+        if action == "publish":
+            Notification.objects.bulk_create([
+                Notification(employee_id=teacher, text=f"Đã công bố thời khóa biểu tuần từ {week.monday:%d/%m/%Y}.")
+                for teacher in set(rows.values_list("teacher_id", flat=True))
+            ])
+    week.revision += 1
+    week.save(update_fields=["revision"])
     suffix = f", tiết #{item.pk}" if action in {"add", "edit"} else ""
     record(request, f"timetable.{action}", f"Tuần #{week.pk}{suffix}")
     messages.success(request, "Đã lưu thời khóa biểu.")

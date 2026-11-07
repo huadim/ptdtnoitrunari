@@ -5,7 +5,7 @@ from django.urls import path, reverse_lazy
 
 from django.views.decorators.http import require_safe
 
-from school import accounts, attendance, home, rosters, staff, timetable
+from school import accounts, attendance, home, rosters, staff, timetable, timetable_planning
 from school.access import school_view
 
 @require_safe
@@ -40,6 +40,9 @@ urlpatterns = [
     path("cham-cong/xuat/<str:format>/", attendance.attendance_export, name="attendance_export"),
     path("thoi-khoa-bieu/", timetable.timetable, name="timetable"),
     path("thoi-khoa-bieu/<int:pk>/", timetable.week_detail, name="week"),
+    path("thoi-khoa-bieu/<int:pk>/ke-hoach/", timetable_planning.timetable_plan, name="timetable_plan"),
+    path("thoi-khoa-bieu/<int:pk>/ke-hoach/mau/", timetable_planning.timetable_plan_template, name="timetable_plan_template"),
+    path("thoi-khoa-bieu/<int:pk>/kiem-tra.json", timetable_planning.timetable_diagnostics, name="timetable_diagnostics"),
     path("thoi-khoa-bieu/<int:pk>/xuat/<str:format>/", timetable.timetable_export, name="timetable_export"),
     path("thong-bao/", home.notifications, name="notifications"),
 ]

@@ -225,3 +225,14 @@ a.lesson-tile:hover { background: #dcecff; }
 }
 .invite-code { font-family: ui-monospace, monospace; letter-spacing: .015em; }
 .access-card { border-left: 3px solid #1c60b0; }
+
+.teaching-days > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+.teaching-days label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
