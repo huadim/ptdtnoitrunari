@@ -1,7 +1,8 @@
 {% extends "school/base.html" %}
 {% block title %}{{ roster.duty_type.name }}{% endblock %}
 {% block content %}
-<header class="page-head"><a class="back" href="{% url 'rosters' %}?month={{ roster.month|date:'Y-m' }}">← Lịch trực</a><h1>{{ roster.duty_type.name }} · {{ roster.month|date:"m/Y" }}</h1><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></header>
+<header class="page-head"><a class="back" href="{% url 'rosters' %}?month={{ roster.month|date:'Y-m' }}">← Phân công lịch trực</a><h1>{{ roster.duty_type.name }} · {{ roster.month|date:"m/Y" }}</h1><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></header>
+{% if roster.state == 'published' %}<div class="card duty-flow"><div><strong>Đã chuyển sang chấm công</strong><p>Ca trực của lịch này xuất hiện trong bảng chấm công tháng {{ roster.month|date:"m/Y" }}.</p></div><a class="button primary" href="{% url 'attendance' %}?month={{ roster.month|date:'Y-m' }}#xac-nhan-ca">Mở chấm công tháng này →</a></div>{% endif %}
 {% if rights.all_duty %}<section class="card">
 <div class="card-head"><h2>Quy tắc và phê duyệt</h2></div>
 <p>{{ roster.people }} người/ngày · Cách ít nhất {{ roster.min_gap }} ngày · Ưu tiên {{ roster.preferred_min }}–{{ roster.preferred_max }} ngày · Cặp cuối tuần nghỉ {{ roster.pair_rest }} ngày trực cuối tuần.</p>

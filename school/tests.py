@@ -276,6 +276,49 @@ class SchoolTests(TestCase):
         self.assertNotContains(self.client.get(reverse("week", args=[week.pk])), "Vật lý")
         self.assertEqual(Lesson.objects.filter(week=week).count(), 2)
 
+    def test_week_grid_prefills_editor_and_keeps_filtered_scope(self):
+        monday = date(2026, 11, 2)
+        week = TimetableWeek.objects.create(school=self.school, monday=monday, academic_year="2026–2027")
+        url = reverse("week", args=[week.pk])
+        self.sign(self.office)
+        editor = self.client.get(url, {"day": "2026-11-04", "period": 4})
+        self.assertContains(editor, "Lưới lịch học theo ngày và tiết")
+        self.assertEqual(editor.context["form"]["date"].value(), monday + timedelta(days=2))
+        self.assertEqual(str(editor.context["form"]["period"].value()), "4")
+        values = {"action": "add", "date": monday.isoformat(), "period": 1, "classroom": "6A",
+                  "teacher": self.teacher.employee_id, "subject": "Toán", "room": "P1"}
+        filtered_url = f"{url}?class=6A&view=list"
+        self.assertRedirects(self.client.post(filtered_url, values), filtered_url)
+        rejected = self.client.post(filtered_url, {**values, "subject": "Vật lý"})
+        self.assertContains(rejected, "Trùng giáo viên")
+        self.assertEqual(rejected.context["form"]["subject"].value(), "Vật lý")
+        self.assertEqual(week.lesson_set.count(), 1)
+        lesson = week.lesson_set.get()
+        editor = self.client.get(url, {"edit": lesson.pk})
+        self.assertContains(editor, "Chỉnh sửa tiết học")
+        self.assertEqual(editor.context["form"]["subject"].value(), "Toán")
+        week.state = State.PUBLISHED
+        week.save(update_fields=["state"])
+        Lesson.objects.create(week=week, date=monday, period=1, classroom="6B", subject="Tin học",
+                              teacher=self.others[0], room="P2")
+        self.sign(self.teacher)
+        private = self.client.get(url, {"edit": lesson.pk})
+        self.assertContains(private, "Toán")
+        self.assertNotContains(private, "Tin học")
+        self.assertNotContains(private, "Chỉnh sửa tiết học")
+        self.assertEqual(private.context["choices"][0][2], [("6A", "6A", False)])
+
+    def test_published_roster_links_to_the_same_attendance_month(self):
+        month = date(2026, 10, 1)
+        roster = self.roster(month, state=State.PUBLISHED)
+        self.slot(roster, month, self.teacher.employee)
+        self.sign(self.teacher)
+        self.assertContains(self.client.get(reverse("roster", args=[roster.pk])),
+                            f'{reverse("attendance")}?month=2026-10#xac-nhan-ca')
+        report = self.client.get(reverse("attendance"), {"month": "2026-10"})
+        self.assertContains(report, f'{reverse("rosters")}?month=2026-10')
+        self.assertContains(report, f'href="{reverse("roster", args=[roster.pk])}"')
+
     @skipUnless(connection.vendor == "postgresql", "Kiểm tra trigger trên PostgreSQL")
     def test_postgres_rejects_cross_tenant_assignment(self):
         today = localdate()

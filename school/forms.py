@@ -5,7 +5,7 @@ from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import DayKind, Result, Role
+from .models import DayKind, Employee, Result, Role
 
 
 class DateInput(forms.DateInput):
@@ -111,7 +111,8 @@ class ConfirmForm(forms.Form):
 
 class WeekForm(forms.Form):
     monday = date_field("Thứ Hai đầu tuần")
-    academic_year = forms.CharField(label="Năm học", max_length=20)
+    academic_year = forms.CharField(label="Năm học", max_length=20,
+                                    widget=forms.TextInput(attrs={"placeholder": "VD 2026–2027"}))
 
     def clean_monday(self):
         monday = self.cleaned_data["monday"]
@@ -125,7 +126,12 @@ class LessonForm(forms.Form):
     period = forms.IntegerField(label="Tiết", min_value=1, max_value=15)
     classroom = forms.CharField(label="Lớp", max_length=40)
     subject = forms.CharField(label="Môn học", max_length=80)
+    teacher = forms.ModelChoiceField(label="Giáo viên", queryset=Employee.objects.none(), empty_label="Chọn giáo viên")
     room = forms.CharField(label="Phòng", max_length=40)
+
+    def __init__(self, *args, teachers, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["teacher"].queryset = teachers
 
     def clean_classroom(self):
         return " ".join(self.cleaned_data["classroom"].upper().split())

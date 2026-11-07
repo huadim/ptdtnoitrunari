@@ -1,9 +1,40 @@
 {% extends "school/base.html" %}
-{% block title %}Thời khóa biểu{% endblock %}
+{% block title %}Thời khóa biểu lên lớp{% endblock %}
 {% block content %}
-<header class="page-head"><span class="eyebrow">Giảng dạy</span><h1>Thời khóa biểu</h1><p>Xem lịch học theo tuần, lớp, giáo viên và phòng.</p></header>
-{% if rights.plan %}<details class="card"><summary>Tạo thời khóa biểu tuần</summary><form method="post" class="form-row">{% csrf_token %}{{ week_form.as_p }}<button class="primary">Mở tuần</button></form></details>{% endif %}
-<section class="card"><h2>Danh sách tuần</h2><div class="table-wrap"><table><thead><tr><th>Tuần từ</th><th>Năm học</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead><tbody>
-{% for week in weeks %}<tr><td>{{ week.monday|date:"d/m/Y" }}</td><td>{{ week.academic_year }}</td><td><span class="badge {{ week.state }}">{{ week.get_state_display }}</span></td><td><a href="{% url 'week' week.pk %}">Mở thời khóa biểu</a></td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa có thời khóa biểu trong phạm vi của bạn.</td></tr>{% endfor %}
-</tbody></table></div></section>
+<header class="page-head workspace-head">
+  <div>
+    <span class="eyebrow">Không gian giảng dạy</span>
+    <h1>Thời khóa biểu lên lớp</h1>
+    <p>{% if rights.plan %}Tạo tuần, xếp các tiết học trên lưới rồi trình duyệt để công bố cho giáo viên.{% else %}Mở một tuần để xem lịch dạy theo lớp, giáo viên hoặc phòng học.{% endif %}</p>
+  </div>
+  {% if rights.plan %}<a class="button primary" href="#tao-tuan">+ Tạo tuần học</a>{% endif %}
+</header>
+<div class="timetable-directory{% if rights.plan %} with-creation{% endif %}">
+  {% if rights.plan %}
+  <section class="card week-create" id="tao-tuan" aria-labelledby="create-week-title">
+    <span class="eyebrow">Bắt đầu xếp lịch</span>
+    <h2 id="create-week-title">Tạo tuần học</h2>
+    <p class="hint" id="week-help">Chọn ngày thứ Hai. Nếu tuần đã có, hệ thống sẽ mở tuần đó.</p>
+    <form method="post" class="stack" aria-describedby="week-help">
+      {% csrf_token %}
+      {{ week_form.as_p }}
+      <button class="primary">Mở tuần học →</button>
+    </form>
+  </section>
+  {% endif %}
+  <section class="card" aria-labelledby="week-directory-title">
+    <div class="card-head"><h2 id="week-directory-title">Danh sách tuần học</h2></div>
+    <div class="week-directory">
+      {% for week in weeks %}
+      <a class="week-directory-item" href="{% url 'week' week.pk %}">
+        <time datetime="{{ week.monday|date:'Y-m-d' }}"><small>THỨ HAI</small><strong>{{ week.monday|date:"d/m" }}</strong></time>
+        <span class="week-directory-label"><strong>Tuần từ {{ week.monday|date:"d/m/Y" }}</strong><small>Năm học {{ week.academic_year }}</small></span>
+        <span class="badge {{ week.state }}">{{ week.get_state_display }}</span><span class="week-arrow" aria-hidden="true">→</span>
+      </a>
+      {% empty %}
+      <p class="empty">{% if rights.plan %}Chưa có tuần học. Hãy tạo tuần đầu tiên để thêm tiết lên lớp.{% else %}Chưa có thời khóa biểu được công bố.{% endif %}</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 {% endblock %}

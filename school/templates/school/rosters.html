@@ -1,7 +1,11 @@
 {% extends "school/base.html" %}
 {% block title %}Lịch trực{% endblock %}
 {% block content %}
-<header class="page-head"><span class="eyebrow">Phân công trực</span><h1>Lịch trực</h1><p>Xem lịch tháng và theo dõi trạng thái duyệt.</p></header>
+<header class="page-head"><span class="eyebrow">Lịch trực và chấm công</span><h1>Phân công lịch trực</h1><p>Ca trực đã công bố tự xuất hiện trong bảng chấm công của cùng tháng.</p></header>
+<section class="card duty-flow" aria-label="Quy trình lịch trực và chấm công">
+  <ol><li><span>1</span> Phân công</li><li><span>2</span> Duyệt và công bố</li><li><span>3</span> Xác nhận chấm công</li></ol>
+  <a class="button" href="{% url 'attendance' %}?month={{ month|date:'Y-m' }}">Chấm công tháng {{ month|date:"m/Y" }} →</a>
+</section>
 {% if rights.plan %}<details class="card"><summary>Tạo lịch trực tháng</summary>
 <form method="post" class="form-row">{% csrf_token %}
 <label>Tháng<input name="month" type="month" value="{{ month|date:'Y-m' }}" required></label>

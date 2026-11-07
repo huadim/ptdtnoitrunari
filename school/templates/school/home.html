@@ -1,6 +1,18 @@
 {% extends "school/base.html" %}
 {% block content %}
-<header class="page-head"><span class="eyebrow">Trang làm việc · {{ today|date:"d/m/Y" }}</span><h1>Tổng quan giáo vụ</h1><p>Xin chào {{ member.employee.name }}. Xem các ca trực sắp tới và thông báo mới của bạn.</p></header>
+<header class="page-head"><span class="eyebrow">Trang làm việc · {{ today|date:"d/m/Y" }}</span><h1>Tổng quan giáo vụ</h1><p>Xin chào {{ member.employee.name }}. Chọn công việc bạn muốn thực hiện.</p></header>
+<div class="workspace-grid">
+  <section class="workspace-card duty-workspace" aria-labelledby="duty-workspace-title">
+    <span class="workspace-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3v4m9-4v4m-13 2.5h17M8 15l2.5 2.5L16 12" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <div><span class="eyebrow">Vận hành nhà trường</span><h2 id="duty-workspace-title">Lịch trực và chấm công</h2><p>{% if rights.all_duty %}Phân công, công bố lịch trực và theo dõi kết quả chấm công từ cùng một nguồn ca trực.{% else %}Xem ca được phân công, gửi đề nghị trực thay và tra cứu công trong phạm vi của bạn.{% endif %}</p></div>
+    <div class="actions"><a class="button primary" href="{% url 'rosters' %}">{% if rights.plan %}Phân công lịch trực{% else %}Xem lịch trực{% endif %}</a><a class="button" href="{% url 'attendance' %}">Mở chấm công</a></div>
+  </section>
+  <section class="workspace-card teaching-workspace" aria-labelledby="teaching-workspace-title">
+    <span class="workspace-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9 9.5v10m6-10v10M3.5 14.5h17" stroke-linecap="round"/></svg></span>
+    <div><span class="eyebrow">Giảng dạy</span><h2 id="teaching-workspace-title">Thời khóa biểu lên lớp</h2><p>{% if rights.plan %}Xếp tiết theo lớp, môn, giáo viên và phòng. Xem lịch trên lưới tuần trước khi trình duyệt.{% else %}Xem lịch dạy đã công bố theo tuần, giáo viên, lớp và phòng học.{% endif %}</p></div>
+    <div class="actions"><a class="button primary" href="{% url 'timetable' %}">{% if rights.plan %}Mở trình xếp thời khóa biểu{% else %}Xem thời khóa biểu{% endif %}</a></div>
+  </section>
+</div>
 <div class="metrics">
   {% if summary %}<div class="metric"><span>Nhân sự đang hoạt động</span><strong>{{ summary.0 }}</strong></div><div class="metric"><span>Lịch trực tháng này</span><strong>{{ summary.1 }}</strong></div><div class="metric"><span>Lịch đã công bố</span><strong>{{ summary.2 }}</strong></div>{% endif %}
   <a class="metric" href="{% url 'notifications' %}"><span>Thông báo chưa đọc</span><strong>{{ unread }}</strong></a>

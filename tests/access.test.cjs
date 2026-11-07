@@ -60,8 +60,9 @@ test("credentials, queries, fragments, plain HTTP and the public Pages host are 
 test("public navigation exposes login and registration without collecting passwords", () => {
   const home = fs.readFileSync("docs/index.html", "utf8");
   const access = fs.readFileSync("docs/dang-nhap.html", "utf8");
-  assert.match(home, /href="\.\/dang-nhap.html"/);
-  assert.match(home, /href="\.\/dang-nhap.html\?mode=register"/);
+  assert.match(home, /href="https:\/\/ptdtnoitrunari\.dockhosting\.cloud\/dang-nhap\/"/);
+  assert.match(home, /href="https:\/\/ptdtnoitrunari\.dockhosting\.cloud\/dang-ky\/"/);
+  assert.doesNotMatch(home, /type="password"/);
   assert.doesNotMatch(access, /type="password"/);
   for (const name of ["style.css", "truy-cap.css", "truy-cap.js"]) {
     assert.ok(fs.existsSync("docs/" + name));

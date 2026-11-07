@@ -15,19 +15,29 @@
     <div class="school-name">{{ school.name }}</div>
     {% with current=request.resolver_match.url_name %}
     <nav aria-label="Phân hệ">
-      <span class="nav-label">Nghiệp vụ</span>
-      <a href="{% url 'home' %}" {% if current == 'home' %}aria-current="page"{% endif %}>Tổng quan</a>
-      {% if rights.plan %}<a href="{% url 'staff' %}" {% if current == 'staff' %}aria-current="page"{% endif %}>Nhân sự</a>{% endif %}
-      <a href="{% url 'timetable' %}" {% if current == 'timetable' or current == 'week' %}aria-current="page"{% endif %}>Thời khóa biểu</a>
-      <a href="{% url 'rosters' %}" {% if current == 'rosters' or current == 'roster' %}aria-current="page"{% endif %}>Lịch trực</a>
-      <a href="{% url 'requests' %}" {% if current == 'requests' %}aria-current="page"{% endif %}>Nghỉ và trực thay</a>
-      <a href="{% url 'attendance' %}" {% if current == 'attendance' %}aria-current="page"{% endif %}>Chấm công và báo cáo</a>
-      <a href="{% url 'notifications' %}" {% if current == 'notifications' %}aria-current="page"{% endif %}>Thông báo</a>
+      <div class="nav-group" role="group" aria-labelledby="nav-general">
+        <span class="nav-label" id="nav-general">Nhà trường</span>
+        <a href="{% url 'home' %}" {% if current == 'home' %}aria-current="page"{% endif %}>Tổng quan</a>
+        <a href="{% url 'notifications' %}" {% if current == 'notifications' %}aria-current="page"{% endif %}>Thông báo</a>
+        {% if rights.plan %}<a href="{% url 'staff' %}" {% if current == 'staff' %}aria-current="page"{% endif %}>Nhân sự</a>{% endif %}
+      </div>
+      <div class="nav-group" role="group" aria-labelledby="nav-duty">
+        <span class="nav-label" id="nav-duty">Lịch trực và chấm công</span>
+        <a href="{% url 'rosters' %}" {% if current == 'rosters' or current == 'roster' %}aria-current="page"{% endif %}>Phân công lịch trực</a>
+        <a href="{% url 'requests' %}" {% if current == 'requests' %}aria-current="page"{% endif %}>Nghỉ và trực thay</a>
+        <a href="{% url 'attendance' %}" {% if current == 'attendance' %}aria-current="page"{% endif %}>Chấm công và báo cáo</a>
+      </div>
+      <div class="nav-group" role="group" aria-labelledby="nav-teaching">
+        <span class="nav-label" id="nav-teaching">Giảng dạy</span>
+        <a href="{% url 'timetable' %}" {% if current == 'timetable' or current == 'week' %}aria-current="page"{% endif %}>Thời khóa biểu lên lớp</a>
+      </div>
       {% if rights.settings %}
-      <span class="nav-label">Quản trị</span>
-      <a href="{% url 'accounts' %}" {% if current == 'accounts' or current == 'account_detail' %}aria-current="page"{% endif %}>Tài khoản và phân quyền</a>
-      <a href="{% url 'configuration' %}" {% if current == 'configuration' %}aria-current="page"{% endif %}>Cấu hình nhà trường</a>
-      <a href="{% url 'audits' %}" {% if current == 'audits' %}aria-current="page"{% endif %}>Nhật ký thao tác</a>
+      <div class="nav-group" role="group" aria-labelledby="nav-admin">
+        <span class="nav-label" id="nav-admin">Quản trị</span>
+        <a href="{% url 'accounts' %}" {% if current == 'accounts' or current == 'account_detail' %}aria-current="page"{% endif %}>Tài khoản và phân quyền</a>
+        <a href="{% url 'configuration' %}" {% if current == 'configuration' %}aria-current="page"{% endif %}>Cấu hình nhà trường</a>
+        <a href="{% url 'audits' %}" {% if current == 'audits' %}aria-current="page"{% endif %}>Nhật ký thao tác</a>
+      </div>
       {% endif %}
     </nav>
     {% endwith %}
