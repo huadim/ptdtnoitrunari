@@ -25,6 +25,7 @@
       <a href="{% url 'notifications' %}" {% if current == 'notifications' %}aria-current="page"{% endif %}>Thông báo</a>
       {% if rights.settings %}
       <span class="nav-label">Quản trị</span>
+      <a href="{% url 'accounts' %}" {% if current == 'accounts' or current == 'account_detail' %}aria-current="page"{% endif %}>Tài khoản và phân quyền</a>
       <a href="{% url 'configuration' %}" {% if current == 'configuration' %}aria-current="page"{% endif %}>Cấu hình nhà trường</a>
       <a href="{% url 'audits' %}" {% if current == 'audits' %}aria-current="page"{% endif %}>Nhật ký thao tác</a>
       {% endif %}

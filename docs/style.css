@@ -5,7 +5,7 @@
   line-height: 1.6;
   --ink: #142b42;
   --muted: #435a72;
-  --accent: #075c51;
+  --accent: #1653a6;
   --line: #cedbe4;
 }
 
@@ -55,7 +55,7 @@ h1 { margin-block: .55rem .9rem; font-size: clamp(2.4rem, 6vw, 4.6rem); line-hei
 .actions { flex-wrap: wrap; margin-top: 1.5rem; }
 .button { padding: .65rem 1.05rem; border-radius: .55rem; border: 1px solid transparent; font-weight: 750; text-decoration: none; }
 .primary { background: var(--accent); color: white; }
-.primary:hover { background: #084b43; }
+.primary:hover { background: #123f7d; }
 .secondary { border-color: #8ea5b6; background: white; }
 .secondary:hover { background: #f1f6f8; }
 .process { padding: clamp(1.3rem, 3vw, 2rem); border: 1px solid var(--line); border-radius: 1rem; background: white; box-shadow: 0 1rem 2.5rem #142b4210; }
@@ -80,4 +80,10 @@ footer { margin-top: 3rem; padding-block: 1.25rem; border-top: 1px solid var(--l
   .header-inner { min-height: 4rem; flex-wrap: wrap; gap: .5rem; padding-block: .5rem; }
   .brand small { display: none; }
   nav { font-size: .88rem; }
+}
+
+nav .nav-register { color: white; }
+@media (max-width: 42rem) {
+  .header-inner { justify-content: center; }
+  nav { flex-wrap: wrap; justify-content: center; }
 }

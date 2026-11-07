@@ -1,23 +1,20 @@
-{% load static %}
-<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đăng nhập · EDUSCHOOL</title>
-  <link rel="stylesheet" href="{% static 'school/app.css' %}">
-</head>
-<body class="login">
-  <main class="login-wrap">
-    <section class="login-intro"><div class="brand"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>QUẢN LÝ GIÁO VỤ</small></span></div>
-    <h1>Một nơi cho công việc giáo vụ hằng ngày</h1><p>Quản lý thời khóa biểu, lịch trực và chấm công tại trường.</p></section>
-    <section class="login-card"><span class="eyebrow">Cổng nội bộ nhà trường</span><h2>Đăng nhập</h2><p>Dùng tài khoản do nhà trường cấp.</p>
-    <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
-      <label for="id_username">Tên đăng nhập</label>{{ form.username }}{{ form.username.errors }}
-      <label for="id_password">Mật khẩu</label>{{ form.password }}{{ form.password.errors }}
-      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-      <button class="primary">Đăng nhập</button>
-    </form></section>
-  </main>
-</body>
-</html>
+{% extends "school/auth_base.html" %}
+{% block title %}Đăng nhập{% endblock %}
+{% block form_content %}
+<div class="auth-form-heading"><span class="eyebrow">Chào mừng trở lại</span><h2>Đăng nhập vào trường</h2><p>Sử dụng tài khoản đã được nhà trường cấp quyền.</p></div>
+<form method="post" class="auth-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="auth-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="auth-field"><label for="{{ form.username.id_for_label }}">Tên đăng nhập</label>{{ form.username }}{{ form.username.errors }}</div>
+  <div class="auth-field">
+    <label for="{{ form.password.id_for_label }}">Mật khẩu</label>
+    <div class="password-input">{{ form.password }}<button type="button" data-toggle-password="{{ form.password.id_for_label }}" aria-pressed="false" aria-label="Hiện mật khẩu">Hiện</button></div>
+    {{ form.password.errors }}
+  </div>
+  <label class="check auth-remember"><input type="checkbox" name="remember" value="1">Duy trì đăng nhập trong 12 giờ</label>
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <button type="submit" class="primary auth-submit">Đăng nhập <span aria-hidden="true">→</span></button>
+</form>
+<div class="auth-note"><span class="auth-note-icon" aria-hidden="true">✓</span><p>Hệ thống mở đúng phạm vi dữ liệu theo vai trò được cấp cho bạn.</p></div>
+<p class="auth-switch">Bạn đã có mã mời? <a href="{% url 'register' %}">Đăng ký tài khoản</a></p>
+{% endblock %}

@@ -4,7 +4,7 @@
 
 ## Trang giới thiệu GitHub Pages
 
-Mở **Settings → Pages** trong kho GitHub. Chọn **Deploy from a branch**, chọn nhánh **main** và thư mục **/docs**, sau đó bấm **Save**. GitHub hiển thị địa chỉ trang ở mục **Visit site** khi xuất bản xong. Trang này giới thiệu phần mềm và dẫn tới hướng dẫn triển khai. Tính năng đăng nhập và dữ liệu dùng chung chạy trên máy chủ theo phần bên dưới.
+Mở **Settings → Pages** trong kho GitHub. Chọn **Deploy from a branch**, chọn nhánh **main** và thư mục **/docs**, sau đó bấm **Save**. GitHub hiển thị địa chỉ trang ở mục **Visit site** khi xuất bản xong. Trang này giới thiệu phần mềm và dẫn tới hướng dẫn triển khai. Nút Đăng nhập và Đăng ký mở cổng truy cập để nhập địa chỉ ứng dụng HTTPS do trường cấp. Tính năng đăng nhập và dữ liệu dùng chung chạy trên máy chủ theo phần bên dưới.
 
 ## Xuất bản qua Render
 
@@ -53,12 +53,19 @@ Mở [http://127.0.0.1:8000](http://127.0.0.1:8000). Lệnh `seed_demo` in tên 
 ## Luồng làm việc tại trường
 
 1. **Hiệu trưởng** vào **Cấu hình nhà trường**, kiểm tra loại trực, số người/ngày, ngày lễ và tạo mức công theo từng nhóm ngày và ngày hiệu lực. Ca hoàn thành chỉ được ghi nhận sau khi có mức công phù hợp.
-2. **Giáo vụ** nhập hồ sơ hoặc tải mẫu Excel ba cột trong **Nhân sự**. Hãy định dạng cột mã nhân sự dưới dạng văn bản để giữ số 0 đầu mã. Hiệu trưởng cấp tài khoản và gán vai trò tại danh sách này.
+2. **Giáo vụ** nhập hồ sơ hoặc tải mẫu Excel ba cột trong **Nhân sự**. Hãy định dạng cột mã nhân sự dưới dạng văn bản để giữ số 0 đầu mã. Hiệu trưởng mở **Tài khoản và phân quyền** để cấp tài khoản hoặc tạo mã mời cho giáo viên tự đăng ký. Mã mời gắn với đúng hồ sơ nhân sự, có hiệu lực 48 giờ và chỉ dùng một lần. Giáo viên tự đăng ký nhận vai trò Giáo viên. Hiệu trưởng có thể điều chỉnh vai trò và ủy quyền sau đó.
 3. **Giáo vụ** tạo lịch trực theo tháng và loại trực, xếp thủ công hoặc tự động, khóa ngày cần giữ và trình duyệt. **Hiệu trưởng** hoặc **phó hiệu trưởng được ủy quyền** duyệt rồi công bố.
 4. **Giáo viên** xem ca của mình, gửi đề nghị nghỉ hoặc trực thay. Người có quyền duyệt chọn nhân sự thay và hệ thống lưu cả người ban đầu lẫn người thực hiện. Đề nghị nghỉ trùng ca trực đã duyệt cần xử lý ca thay trước.
 5. **Giáo vụ** xác nhận từng ca đã đến ngày thực hiện. Ca trực thay hoàn thành được tính cho người thay. Người phân công ban đầu vẫn có lượt phân công trong báo cáo. Chấm công lưu nhóm ngày, hệ số và công tại lần xác nhận. **Hiệu trưởng** duyệt và khóa theo tháng. Mở lại cần lý do và được ghi nhật ký.
 6. Chọn phạm vi từ một đến 12 tháng trong **Chấm công và báo cáo** để tổng hợp tháng, quý, học kỳ hoặc năm học theo mốc của trường. Có bảng so sánh số ca và công theo tổ chuyên môn. Mở PDF A4 để xem trước rồi chọn **In** trong trình xem PDF. Có tệp Word và Excel để chỉnh sửa hoặc đối chiếu.
 7. Trong **Thời khóa biểu**, giáo vụ lập tuần, thêm tiết và trình duyệt. Bộ lọc theo lớp, mã giáo viên hoặc phòng áp dụng cả khi xuất tệp.
+
+## Đăng nhập và quản trị tài khoản
+
+- Trang `/dang-nhap/` dùng chung cho các vai trò. Hệ thống mở phạm vi dữ liệu từ quyền đã lưu của tài khoản. Chọn duy trì đăng nhập nếu muốn giữ phiên tối đa 12 giờ.
+- Trang `/dang-ky/` yêu cầu mã mời hợp lệ. Hiệu trưởng tạo mã tại **Tài khoản và phân quyền → Quản lý tài khoản → Tạo mã mời** và giao trực tiếp cho đúng người. Tạo lại mã sẽ thay thế mã cũ.
+- Hiệu trưởng có thể lọc tài khoản theo vai trò hoặc trạng thái, đổi quyền, tạm khóa và đặt lại mật khẩu. Tạm khóa tài khoản giữ lại hồ sơ và lịch trực, đồng thời thu hồi các phiên cũ. Khi mở lại, người dùng đăng nhập lại.
+- Tài khoản hiệu trưởng đầu tiên được tạo qua quy trình triển khai. Cấu hình này giữ quyền cấp quản trị trường trong quy trình vận hành.
 
 ## Phân quyền
 

@@ -17,6 +17,11 @@ from .models import Employee, LoginBucket, Notification, Roster, Slot, State
 
 
 class SchoolAuthentication(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].widget.attrs.update({"placeholder": "Tên đăng nhập của bạn", "spellcheck": "false"})
+        self.fields["password"].widget.attrs["placeholder"] = "Nhập mật khẩu"
+
     def clean(self):
         username = self.cleaned_data.get("username")
         if not username or not self.cleaned_data.get("password"):
@@ -60,6 +65,13 @@ class SchoolLogin(LoginView):
     template_name = "school/login.html"
     authentication_form = SchoolAuthentication
     redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        self.request.session["school_session_version"] = form.get_user().membership.session_version
+        if not self.request.POST.get("remember"):
+            self.request.session.set_expiry(0)
+        return response
 
 
 @school_view

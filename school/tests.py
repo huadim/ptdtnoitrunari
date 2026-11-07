@@ -11,13 +11,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import localdate, now
 from docx import Document
 from openpyxl import Workbook, load_workbook
 
-from .models import (Attendance, Audit, DayKind, Decision, DutyDay, DutyType, Employee, Holiday, Lesson,
+from .models import (AccountInvitation, Attendance, Audit, DayKind, Decision, DutyDay, DutyType, Employee, Holiday, Lesson,
                      LoginBucket, Membership, MonthClose, Rate, Request, Result, Role, Roster, School, Slot, State, TimetableWeek)
 from .scheduling import Rules
 
@@ -285,6 +285,110 @@ class SchoolTests(TestCase):
 
 
 
+    def invitation(self, employee=None):
+        employee = employee or self.others[0]
+        self.sign(self.principal)
+        response = self.follow("account_detail", {"action": "invite"}, employee.pk)
+        self.assertEqual(response.status_code, 200)
+        return response.context["invite_code"]
+
+    def registration_data(self, code, username="new.teacher"):
+        return {"invite_code": code, "username": username, "password1": PASSWORD, "password2": PASSWORD}
+
+    def test_invitation_registration_is_single_use_and_cannot_choose_admin(self):
+        from hashlib import sha256
+        code = self.invitation()
+        invitation = AccountInvitation.objects.get(employee=self.others[0])
+        self.assertEqual(invitation.digest, sha256(code.encode()).hexdigest())
+        self.assertNotIn(code, invitation.digest)
+        self.client.logout()
+        self.assertContains(self.client.get(reverse("register")), "Tạo tài khoản giáo viên")
+        response = self.follow("register", {**self.registration_data(code), "role": Role.PRINCIPAL,
+                                            "school": self.other.pk, "employee": self.foreign.employee_id})
+        self.assertContains(response, "Đăng ký thành công")
+        member = Membership.objects.get(user__username="new.teacher")
+        self.assertEqual((member.employee_id, member.role), (self.others[0].pk, Role.TEACHER))
+        self.assertEqual(member.school.pk, self.school.pk)
+        self.assertTrue(member.user.check_password(PASSWORD))
+        self.assertFalse(member.approve_duty)
+        self.assertContains(self.follow("register", self.registration_data(code, "another.teacher")), "Mã mời đã hết hạn")
+        self.assertFalse(User.objects.filter(username="another.teacher").exists())
+        self.assertRedirects(self.client.post(reverse("login"), {"username": "NEW.TEACHER", "password": PASSWORD}),
+                             reverse("home"))
+        self.assertEqual(self.client.get(reverse("accounts")).status_code, 403)
+
+    def test_revoked_expired_and_replaced_invitation_codes_are_rejected(self):
+        code = self.invitation()
+        replacement = self.invitation()
+        self.client.logout()
+        self.assertContains(self.follow("register", self.registration_data(code)), "Mã mời đã hết hạn")
+        AccountInvitation.objects.filter(employee=self.others[0]).update(expires_at=now() - timedelta(seconds=1))
+        self.assertContains(self.follow("register", self.registration_data(replacement)), "Mã mời đã hết hạn")
+        current = self.invitation()
+        self.follow("account_detail", {"action": "revoke"}, self.others[0].pk)
+        self.client.logout()
+        self.assertContains(self.follow("register", self.registration_data(current)), "Mã mời đã hết hạn")
+        self.assertFalse(User.objects.filter(username="new.teacher").exists())
+
+    def test_registration_validates_passwords_and_does_not_consume_code_on_error(self):
+        code = self.invitation()
+        self.client.logout()
+        self.assertContains(self.follow("register", {**self.registration_data(code), "password2": "different"}),
+                            "Hai mật khẩu chưa khớp")
+        self.assertContains(self.follow("register", self.registration_data(code, "P")), "Tên đăng nhập đã được sử dụng")
+        self.assertIsNone(AccountInvitation.objects.get(employee=self.others[0]).used_at)
+        client = Client(enforce_csrf_checks=True)
+        self.assertEqual(client.post(reverse("register"), self.registration_data(code)).status_code, 403)
+        self.assertFalse(User.objects.filter(username="new.teacher").exists())
+
+    def test_account_admin_is_scoped_and_role_delegation_is_enforced(self):
+        self.sign(self.principal)
+        self.assertContains(self.client.get(reverse("accounts")), "Tài khoản và phân quyền")
+        self.assertEqual(self.client.get(reverse("account_detail", args=[self.foreign.employee_id])).status_code, 404)
+        self.follow("account_detail", {"action": "role", "role": Role.DEPUTY, "approve_duty": "on",
+                                       "approve_attendance": "on"}, self.teacher.employee_id)
+        self.teacher.refresh_from_db()
+        self.assertTrue(self.teacher.approve_duty and self.teacher.approve_attendance)
+        self.follow("account_detail", {"action": "role", "role": Role.TEACHER, "approve_duty": "on",
+                                       "approve_attendance": "on"}, self.teacher.employee_id)
+        self.teacher.refresh_from_db()
+        self.assertFalse(self.teacher.approve_duty or self.teacher.approve_attendance)
+        self.assertContains(self.follow("account_detail", {"action": "suspend"}, self.principal.employee_id),
+                            "Tài khoản hiệu trưởng")
+        self.sign(self.office)
+        self.assertEqual(self.client.get(reverse("accounts")).status_code, 403)
+        self.assertEqual(self.client.post(reverse("staff"), {"action": "account", "id": self.others[0].pk,
+                                                            "username": "illegal", "password": PASSWORD,
+                                                            "role": Role.PRINCIPAL}).status_code, 403)
+
+    def test_suspending_and_restoring_account_revokes_existing_sessions(self):
+        teacher_client = Client()
+        self.assertTrue(teacher_client.login(username=self.teacher.user.username, password=PASSWORD))
+        self.sign(self.principal)
+        self.follow("account_detail", {"action": "suspend"}, self.teacher.employee_id)
+        self.follow("account_detail", {"action": "restore"}, self.teacher.employee_id)
+        self.teacher.user.refresh_from_db()
+        self.assertTrue(self.teacher.user.is_active)
+        self.assertRedirects(teacher_client.get(reverse("home")), reverse("login"))
+        self.assertRedirects(teacher_client.post(reverse("login"), {"username": "t", "password": PASSWORD}),
+                             reverse("home"))
+        self.follow("account_detail", {"action": "password", "password1": PASSWORD + "-reset",
+                                       "password2": PASSWORD + "-reset"}, self.teacher.employee_id)
+        self.assertEqual(teacher_client.get(reverse("home")).status_code, 302)
+        self.assertFalse(teacher_client.login(username="t", password=PASSWORD))
+        self.assertRedirects(teacher_client.post(reverse("login"), {"username": "t", "password": PASSWORD + "-reset"}),
+                             reverse("home"))
+
+    def test_direct_account_creation_preserves_legacy_entry_and_consumes_invitation(self):
+        code = self.invitation()
+        self.assertContains(self.follow("staff", {"action": "account", "id": self.others[0].pk,
+                                                  "username": "direct.teacher", "password": PASSWORD, "role": Role.TEACHER}),
+                            "Đã lưu hồ sơ nhân sự")
+        self.assertIsNotNone(AccountInvitation.objects.get(employee=self.others[0]).used_at)
+        self.client.logout()
+        self.assertContains(self.follow("register", self.registration_data(code)), "Mã mời đã hết hạn")
+
+
 class DeploymentTests(TestCase):
     def test_bootstrap_creates_principal_once_and_preserves_password(self):
         args = ["--if-missing", "--slug", "na-ri", "--name", "Trường Nội trú",
@@ -305,3 +409,47 @@ class DeploymentTests(TestCase):
         self.assertEqual(member.user.password, password_hash)
         self.assertEqual(School.objects.count(), 1)
         self.assertEqual(DutyType.objects.count(), 1)
+
+
+
+@skipUnless(connection.vendor == "postgresql", "Kiểm tra đăng ký đồng thời trên PostgreSQL")
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class RegistrationConcurrencyTests(TransactionTestCase):
+    def test_one_invitation_creates_only_one_account_under_concurrent_requests(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from hashlib import sha256
+        from threading import Barrier
+
+        from django.core.exceptions import ValidationError
+        from django.db import close_old_connections, connections
+
+        from .accounts import create_from_invitation
+        from .forms import RegistrationForm
+
+        school = School.objects.create(name="Trường kiểm thử đồng thời", slug="concurrent")
+        employee = Employee.objects.create(school=school, code="CT01", name="Giáo viên thử nghiệm")
+        code = "a" * 43
+        AccountInvitation.objects.create(employee=employee, digest=sha256(code.encode()).hexdigest(),
+                                         expires_at=now() + timedelta(hours=48))
+        barrier = Barrier(2)
+
+        def attempt(number):
+            close_old_connections()
+            try:
+                form = RegistrationForm({"invite_code": code, "username": f"concurrent-{number}",
+                                         "password1": PASSWORD, "password2": PASSWORD})
+                assert form.is_valid()
+                barrier.wait(timeout=10)
+                try:
+                    create_from_invitation(form)
+                    return True
+                except ValidationError:
+                    return False
+            finally:
+                connections["default"].close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(attempt, (1, 2)))
+        self.assertEqual(outcomes.count(True), 1)
+        self.assertEqual(Membership.objects.filter(employee=employee).count(), 1)
+        self.assertEqual(User.objects.filter(username__startswith="concurrent-").count(), 1)

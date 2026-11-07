@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib.auth import password_validation
+from django.contrib.auth.models import User
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -39,7 +41,7 @@ class ImportForm(forms.Form):
 
 class AccountForm(forms.Form):
     username = forms.RegexField(r"^[\w.@+-]+\Z", label="Tên đăng nhập (dùng chung hệ thống)", max_length=150)
-    password = forms.CharField(label="Mật khẩu ban đầu", widget=forms.PasswordInput, max_length=128)
+    password = forms.CharField(label="Mật khẩu ban đầu", widget=forms.PasswordInput, max_length=128, strip=False)
     role = forms.ChoiceField(label="Vai trò", choices=[item for item in Role.choices if item[0] != Role.PRINCIPAL])
     approve_duty = forms.BooleanField(label="Ủy quyền duyệt và công bố lịch cho phó hiệu trưởng", required=False)
     approve_attendance = forms.BooleanField(label="Ủy quyền khóa chấm công cho phó hiệu trưởng", required=False)
@@ -130,3 +132,50 @@ class LessonForm(forms.Form):
 
     def clean_room(self):
         return " ".join(self.cleaned_data["room"].upper().split())
+
+
+class PasswordSetupForm(forms.Form):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    password1 = forms.CharField(
+        label="Mật khẩu mới", strip=False, max_length=128,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "minlength": "12"}),
+    )
+    password2 = forms.CharField(
+        label="Nhập lại mật khẩu", strip=False, max_length=128,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "minlength": "12"}),
+    )
+
+    def clean(self):
+        data = super().clean()
+        password = data.get("password1")
+        if password and data.get("password2"):
+            if password != data["password2"]:
+                self.add_error("password2", "Hai mật khẩu chưa khớp.")
+            try:
+                password_validation.validate_password(password, self.user or User(username=data.get("username", "")))
+            except ValidationError as exc:
+                self.add_error("password1", exc)
+        return data
+
+
+class RegistrationForm(PasswordSetupForm):
+    invite_code = forms.RegexField(
+        r"^[A-Za-z0-9_-]{43}$", label="Mã mời của nhà trường", max_length=43,
+        error_messages={"invalid": "Mã mời gồm 43 ký tự. Hãy sao chép nguyên mã do hiệu trưởng cấp."},
+        widget=forms.TextInput(attrs={"autocomplete": "off", "spellcheck": "false"}),
+    )
+    username = forms.CharField(
+        label="Tên đăng nhập", max_length=150,
+        widget=forms.TextInput(attrs={"autocomplete": "username", "spellcheck": "false"}),
+    )
+    field_order = ["invite_code", "username", "password1", "password2"]
+
+    def clean_username(self):
+        username = User.normalize_username(self.cleaned_data["username"]).casefold()
+        if len(username) > 150:
+            raise ValidationError("Tên đăng nhập tối đa 150 ký tự.")
+        UnicodeUsernameValidator()(username)
+        return username

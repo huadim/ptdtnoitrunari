@@ -1,9 +1,10 @@
 from functools import wraps
 
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
@@ -45,6 +46,9 @@ def school_view(view):
     def scoped(request, *args, **kwargs):
         request.member = get_object_or_404(Membership.objects.select_related("employee__school"),
                                           user=request.user, employee__active=True)
+        if request.session.get("school_session_version", 0) != request.member.session_version:
+            logout(request)
+            return redirect("login")
         request.school = request.member.school
         request.rights = permissions(request.member)
         return view(request, *args, **kwargs)

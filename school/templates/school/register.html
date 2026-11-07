@@ -1,0 +1,15 @@
+{% extends "school/auth_base.html" %}
+{% block title %}Đăng ký{% endblock %}
+{% block form_content %}
+<div class="auth-form-heading"><span class="eyebrow">Tham gia nhà trường</span><h2>Tạo tài khoản giáo viên</h2><p>Nhập mã mời do hiệu trưởng cấp để kết nối với hồ sơ nhân sự của bạn.</p></div>
+<form method="post" class="auth-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="auth-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="auth-field"><label for="{{ form.invite_code.id_for_label }}">{{ form.invite_code.label }}</label>{{ form.invite_code }}{{ form.invite_code.errors }}<small>Mã có hiệu lực 48 giờ và được sử dụng một lần.</small></div>
+  <div class="auth-field"><label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>{{ form.username }}{{ form.username.errors }}</div>
+  <div class="auth-field"><label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label><div class="password-input">{{ form.password1 }}<button type="button" data-toggle-password="{{ form.password1.id_for_label }}" aria-pressed="false" aria-label="Hiện mật khẩu mới">Hiện</button></div>{{ form.password1.errors }}<small>Ít nhất 12 ký tự, kết hợp chữ và số hoặc ký hiệu.</small></div>
+  <div class="auth-field"><label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>{{ form.password2 }}{{ form.password2.errors }}</div>
+  <button class="primary auth-submit">Đăng ký tài khoản <span aria-hidden="true">→</span></button>
+</form>
+<p class="auth-switch">Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập</a></p>
+{% endblock %}

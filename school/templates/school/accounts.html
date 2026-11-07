@@ -1,0 +1,35 @@
+{% extends "school/base.html" %}
+{% block title %}Quản trị tài khoản{% endblock %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Quản trị nhà trường</span><h1>Tài khoản và phân quyền</h1><p>Cấp tài khoản, tạo mã mời đăng ký và quản lý quyền truy cập trong trường.</p></header>
+<div class="metrics">
+  <div class="metric"><span>Tổng nhân sự</span><strong>{{ counts.0 }}</strong></div>
+  <div class="metric"><span>Đã có tài khoản</span><strong>{{ counts.1 }}</strong></div>
+  <div class="metric"><span>Tài khoản tạm khóa</span><strong>{{ counts.2 }}</strong></div>
+  <div class="metric"><span>Chưa có tài khoản</span><strong>{{ counts.3 }}</strong></div>
+</div>
+<section class="card">
+<div class="card-head"><h2>Danh sách tài khoản</h2><a class="button" href="{% url 'staff' %}">Thêm hồ sơ nhân sự</a></div>
+<form method="get" class="form-row">
+  <label>Tìm kiếm<input name="q" value="{{ query }}" maxlength="120" placeholder="Tên, mã nhân sự hoặc tài khoản"></label>
+  <label>Vai trò<select name="role"><option value="">Tất cả vai trò</option>{% for value, label in roles %}<option value="{{ value }}" {% if selected_role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <label>Trạng thái<select name="status"><option value="">Tất cả trạng thái</option><option value="active" {% if selected_status == 'active' %}selected{% endif %}>Đang hoạt động</option><option value="suspended" {% if selected_status == 'suspended' %}selected{% endif %}>Tạm khóa</option><option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Chưa có tài khoản</option></select></label>
+  <button>Lọc tài khoản</button><a href="{% url 'accounts' %}">Bỏ bộ lọc</a>
+</form>
+<div class="table-wrap"><table><thead><tr><th>Nhân sự</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th>Quản lý</th></tr></thead><tbody>
+{% for employee in employees %}<tr>
+<td><strong>{{ employee.name }}</strong><small class="block">{{ employee.code }} · {{ employee.department|default:"Chưa có tổ" }}</small></td>
+<td>{{ employee.membership.user.username|default:"Chưa cấp tài khoản" }}</td>
+<td>{{ employee.membership.get_role_display|default:"—" }}</td>
+<td>{% if not employee.active %}<span class="badge pending">Nhân sự ngừng hoạt động</span>{% elif employee.membership %}{% if employee.membership.user.is_active %}<span class="badge published">Đang hoạt động</span>{% else %}<span class="badge pending">Tạm khóa</span>{% endif %}{% else %}<span class="badge">Chờ cấp tài khoản</span>{% endif %}</td>
+<td><a href="{% url 'account_detail' employee.pk %}">Quản lý tài khoản</a></td>
+</tr>{% empty %}<tr><td colspan="5" class="empty">Không có nhân sự phù hợp. Bạn có thể thêm hồ sơ trước khi cấp tài khoản.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<details class="card"><summary>Vai trò và phạm vi dữ liệu</summary><div class="table-wrap"><table><thead><tr><th>Vai trò</th><th>Phạm vi và nhiệm vụ</th></tr></thead><tbody>
+<tr><td>Hiệu trưởng</td><td>Quản lý nhà trường, cấp tài khoản, phân quyền, phê duyệt và khóa chấm công.</td></tr>
+<tr><td>Phó hiệu trưởng</td><td>Duyệt lịch hoặc khóa chấm công theo từng quyền được hiệu trưởng ủy quyền.</td></tr>
+<tr><td>Giáo vụ</td><td>Quản lý nhân sự, lập lịch, tổng hợp và xác nhận chấm công.</td></tr>
+<tr><td>Tổ trưởng</td><td>Xem lịch và báo cáo thuộc tổ chuyên môn.</td></tr>
+<tr><td>Giáo viên</td><td>Xem lịch và chấm công cá nhân, gửi đề nghị nghỉ hoặc trực thay.</td></tr>
+</tbody></table></div></details>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102844">
+  <title>{% block title %}Tài khoản{% endblock %} · EDUSCHOOL Manager</title>
+  <link rel="stylesheet" href="{% static 'school/app.css' %}">
+  <link rel="stylesheet" href="{% static 'school/auth.css' %}">
+  <script src="{% static 'school/auth.js' %}" defer></script>
+</head>
+<body class="auth-page">
+<a class="skip" href="#auth-main">Đi tới biểu mẫu</a>
+<header class="auth-header">
+  <a class="brand" href="https://huadim.github.io/ptdtnoitrunari/"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>MANAGER</small></span></a>
+  <a class="auth-help" href="#tro-giup">Trợ giúp tài khoản</a>
+</header>
+<main class="auth-layout" id="auth-main">
+  <section class="auth-story" aria-labelledby="auth-story-title">
+    <span class="auth-kicker">Nền tảng quản lý giáo vụ</span>
+    <h1 id="auth-story-title">Kết nối nhà trường.<br>Đồng hành mỗi ngày.</h1>
+    <p>Thời khóa biểu, lịch trực và chấm công trong cùng một hệ thống.</p>
+    <div class="auth-workflow" aria-label="Quy trình giáo vụ">
+      <div><span class="auth-step">01</span><div><strong>Lập lịch rõ ràng</strong><small>Giáo vụ phân công và trình duyệt.</small></div></div>
+      <div><span class="auth-step">02</span><div><strong>Phối hợp thuận tiện</strong><small>Giáo viên xem lịch, đề nghị nghỉ và trực thay.</small></div></div>
+      <div><span class="auth-step">03</span><div><strong>Báo cáo theo quyền</strong><small>Hiệu trưởng tổng hợp, phê duyệt và in A4.</small></div></div>
+    </div>
+    <div class="auth-story-footer"><span class="auth-dot" aria-hidden="true"></span>Quyền truy cập theo tài khoản và nhà trường</div>
+  </section>
+  <section class="auth-form-panel" aria-label="Tài khoản nhà trường">
+    <nav class="auth-tabs" aria-label="Thao tác tài khoản">
+      <a href="{% url 'login' %}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %}>Đăng nhập</a>
+      <a href="{% url 'register' %}" {% if request.resolver_match.url_name == 'register' %}aria-current="page"{% endif %}>Đăng ký</a>
+    </nav>
+    {% if messages %}<div aria-live="polite">{% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% block form_content %}{% endblock %}
+    <details class="auth-support" id="tro-giup">
+      <summary>Quên mật khẩu hoặc chưa có mã mời?</summary>
+      <p>Liên hệ hiệu trưởng hoặc người quản trị trường để được cấp mã mời hay đặt lại mật khẩu. Khi được cấp tài khoản sẵn, bạn có thể đăng nhập ngay.</p>
+    </details>
+  </section>
+</main>
+<footer class="auth-footer">EDUSCHOOL Manager <span aria-hidden="true">·</span> Dành cho giáo viên, giáo vụ và ban giám hiệu</footer>
+</body>
+</html>

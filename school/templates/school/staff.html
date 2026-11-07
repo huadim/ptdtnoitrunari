@@ -14,23 +14,9 @@
 <details><summary>Sửa hồ sơ</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}">
 <label>Mã nhân sự<input name="code" value="{{ employee.code }}" required maxlength="40"></label><label>Họ và tên<input name="name" value="{{ employee.name }}" required maxlength="120"></label>
 <label>Tổ chuyên môn<input name="department" value="{{ employee.department }}" maxlength="100"></label><button name="action" value="edit">Lưu hồ sơ</button></form></details>
-{% if rights.settings and employee.membership.role != 'principal' %}
-{% if employee.membership %}
-<details><summary>Sửa quyền</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}">
-<label>Vai trò<select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if value == employee.membership.role %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-<label class="check"><input type="checkbox" name="approve_duty" {% if employee.membership.approve_duty %}checked{% endif %}> Ủy quyền duyệt lịch cho phó hiệu trưởng</label>
-<label class="check"><input type="checkbox" name="approve_attendance" {% if employee.membership.approve_attendance %}checked{% endif %}> Ủy quyền khóa chấm công cho phó hiệu trưởng</label>
-<button name="action" value="role">Lưu quyền</button></form></details>
-{% else %}
-<details><summary>Cấp tài khoản</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}">
-<label>Tên đăng nhập<input name="username" autocomplete="off" required maxlength="150"></label>
-<label>Mật khẩu ban đầu<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
-<label>Vai trò<select name="role">{% for value, label in roles reversed %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-<label class="check"><input type="checkbox" name="approve_duty"> Ủy quyền duyệt lịch cho phó hiệu trưởng</label>
-<label class="check"><input type="checkbox" name="approve_attendance"> Ủy quyền khóa chấm công cho phó hiệu trưởng</label>
-<button name="action" value="account">Cấp tài khoản</button></form></details>
-{% endif %}
-<form method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}"><button name="action" value="toggle">{% if employee.active %}Ngừng hoạt động{% else %}Kích hoạt lại{% endif %}</button></form>
+{% if rights.settings %}
+<a href="{% url 'account_detail' employee.pk %}">Tài khoản và phân quyền</a>
+{% if employee.membership.role != 'principal' %}<form method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}"><button name="action" value="toggle">{% if employee.active %}Ngừng hồ sơ nhân sự{% else %}Kích hoạt hồ sơ nhân sự{% endif %}</button></form>{% endif %}
 {% endif %}
 </div></td></tr>{% empty %}<tr><td colspan="5" class="empty">Chưa có nhân sự. Thêm hồ sơ hoặc nhập Excel để bắt đầu.</td></tr>{% endfor %}
 </tbody></table></div></section>

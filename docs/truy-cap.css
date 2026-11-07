@@ -1,0 +1,44 @@
+.access-page { min-height: 100vh; background: radial-gradient(ellipse at 8% 0%, #e4eefb 0%, transparent 48%), #f4f7fb; }
+.access-header, .access-footer { max-width: 1170px; margin-inline: auto; padding: 24px; }
+.access-header { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+.access-header > a:last-child { color: #345a85; font-size: .85rem; font-weight: 650; text-decoration: none; }
+.access-layout { display: grid; grid-template-columns: 1.05fr 1fr; max-width: 1120px; margin: 20px auto; border: 1px solid #d9e3ee; border-radius: 22px; overflow: hidden; background: white; box-shadow: 0 18px 60px #193c6610; }
+.access-story { background: radial-gradient(circle at 0% 0%, #315c89 0%, transparent 65%), #122c49; padding: clamp(28px, 4vw, 55px); color: white; }
+.access-kicker { color: #c7dbf2; font-size: .76rem; font-weight: 750; text-transform: uppercase; letter-spacing: .09em; }
+.access-story h1 { margin: 22px 0 12px; font-size: clamp(1.9rem, 3.3vw, 2.7rem); line-height: 1.2; }
+.access-story > p:not(.access-kicker) { color: #c7daef; }
+.access-story ol { list-style: none; padding: 0; margin: 30px 0 40px; display: grid; gap: 16px; }
+.access-story li { display: flex; gap: 13px; align-items: flex-start; padding: 15px 0; border-top: 1px solid #6484a54d; }
+.access-story li > span { width: 33px; height: 33px; flex: none; display: grid; place-items: center; color: #d1e8ff; background: #ffffff13; border: 1px solid #ffffff24; border-radius: 9px; font-size: .72rem; }
+.access-story li p { margin-top: 3px; font-size: .84rem; color: #c7daef; }
+.access-footnote { font-size: .76rem; }
+.access-panel { padding: clamp(25px, 4vw, 52px); min-width: 0; }
+.access-tabs { display: flex; gap: 8px; padding: 5px; border-radius: 10px; margin-bottom: 31px; background: #eff4fa; }
+.access-tabs a { flex: 1; text-align: center; text-decoration: none; padding: 8px; border-radius: 7px; color: #506882; font-weight: 700; font-size: .9rem; }
+.access-tabs a[aria-current] { background: white; color: #154a8f; box-shadow: 0 2px 6px #143e6610; }
+.access-panel h2 { font-size: clamp(1.5rem, 2.4vw, 1.9rem); margin: 6px 0; }
+.access-panel > p:not(.eyebrow), .access-support { color: #5b6d82; font-size: .88rem; }
+#access-form { display: grid; gap: 8px; margin-top: 24px; }
+#access-form label { font-size: .88rem; font-weight: 650; color: #2e435d; }
+#access-form input { padding: 12px; min-height: 46px; font: inherit; width: 100%; min-width: 0; border: 1px solid #b9cbe0; border-radius: 8px; color: #17283d; background: white; }
+#access-form button { margin-top: 13px; display: flex; justify-content: space-between; min-height: 47px; cursor: pointer; font: inherit; font-weight: 700; }
+.field-help { color: #60738b; font-size: .75rem; }
+.access-error { color: #942b23; font-size: .83rem; }
+.access-notice { background: #f1f7fe; border: 1px solid #dae8fa; border-radius: 9px; padding: 13px; margin: 24px 0; font-size: .78rem; color: #47617e; }
+.access-notice strong { color: #2e537f; }
+.access-notice p { margin-top: 4px; }
+.access-support { border-top: 1px solid #e0e8f1; padding-top: 18px; font-size: .79rem; }
+.access-support summary { cursor: pointer; font-weight: 650; color: #526c88; }
+.access-support[open] summary { margin-bottom: 10px; }
+.access-support a { display: inline-block; margin-top: 9px; color: #1653a6; }
+.access-footer { text-align: center; font-size: .76rem; color: #63768d; padding-top: 12px; }
+@media (max-width: 750px) {
+  .access-header { padding: 18px; }
+  .access-header .brand small { display: none; }
+  .access-header > a:last-child { font-size: .75rem; }
+  .access-layout { grid-template-columns: minmax(0, 1fr); margin: 8px 14px; }
+  .access-story, .access-panel { padding: 25px; }
+  .access-story h1 { margin-top: 10px; font-size: 1.65rem; }
+  .access-story ol, .access-footnote { display: none; }
+  .access-story > p:not(.access-kicker) { font-size: .86rem; }
+}

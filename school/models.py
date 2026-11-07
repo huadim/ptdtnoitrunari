@@ -39,6 +39,7 @@ class Membership(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     employee = models.OneToOneField(Employee, on_delete=models.PROTECT)
     role = models.CharField(max_length=12, choices=Role)
+    session_version = models.PositiveIntegerField(default=0)
     approve_duty = models.BooleanField(default=False)
     approve_attendance = models.BooleanField(default=False)
 
@@ -237,3 +238,10 @@ class LoginBucket(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     window = models.DateTimeField(db_index=True)
     failures = models.PositiveSmallIntegerField(default=0)
+
+
+class AccountInvitation(models.Model):
+    employee = models.OneToOneField(Employee, on_delete=models.PROTECT)
+    digest = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True)

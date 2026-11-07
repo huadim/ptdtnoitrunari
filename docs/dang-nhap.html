@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102844">
+  <title>Truy cập nhà trường · EDUSCHOOL Manager</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./truy-cap.css">
+  <script src="./truy-cap.js" defer></script>
+</head>
+<body class="access-page">
+<header class="access-header"><a class="brand" href="./"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL <small>MANAGER</small></span></a><a href="./#su-dung">Hướng dẫn sử dụng</a></header>
+<main class="access-layout">
+  <section class="access-story" aria-labelledby="story-title">
+    <p class="access-kicker">Cổng truy cập nhà trường</p>
+    <h1 id="story-title">Kết nối nhà trường.<br>Đồng hành mỗi ngày.</h1>
+    <p>Một tài khoản để theo dõi lịch giảng dạy, lịch trực và chấm công theo quyền được cấp.</p>
+    <ol>
+      <li><span>01</span><div><strong>Giáo viên</strong><p>Xem lịch cá nhân và gửi đề nghị nghỉ, trực thay.</p></div></li>
+      <li><span>02</span><div><strong>Giáo vụ</strong><p>Phân công nhiệm vụ và tổng hợp chấm công.</p></div></li>
+      <li><span>03</span><div><strong>Hiệu trưởng</strong><p>Quản trị tài khoản, cấp quyền và phê duyệt báo cáo.</p></div></li>
+    </ol>
+    <p class="access-footnote">Vai trò được hiệu trưởng cấp trong ứng dụng của trường.</p>
+  </section>
+  <section class="access-panel" aria-labelledby="access-title">
+    <nav class="access-tabs" aria-label="Tài khoản">
+      <a href="./dang-nhap.html" id="login-tab">Đăng nhập</a>
+      <a href="./dang-nhap.html?mode=register" id="register-tab">Đăng ký</a>
+    </nav>
+    <p class="eyebrow">EDUSCHOOL Manager</p>
+    <h2 id="access-title">Đăng nhập vào trường</h2>
+    <p id="access-description">Nhập địa chỉ ứng dụng do nhà trường cung cấp để mở trang đăng nhập.</p>
+    <form id="access-form">
+      <label for="school-url">Địa chỉ ứng dụng của trường</label>
+      <input id="school-url" name="school_url" type="url" placeholder="https://giaovu.truong.edu.vn" autocomplete="url" required aria-describedby="address-help access-error">
+      <p class="field-help" id="address-help">Dùng địa chỉ HTTPS chính thức do trường cấp.</p>
+      <p class="access-error" id="access-error" role="alert" hidden></p>
+      <button type="submit" class="button primary" id="access-submit">Mở trang đăng nhập <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="access-notice"><strong>Trang truy cập trên GitHub Pages</strong><p>Tài khoản, mật khẩu và dữ liệu nhân sự được xử lý trong ứng dụng máy chủ của trường.</p></div>
+    <details class="access-support"><summary>Chưa có địa chỉ ứng dụng hoặc mã mời?</summary><p>Hiệu trưởng hoặc quản trị trường cung cấp địa chỉ ứng dụng và mã mời đăng ký. Nếu trường đang thiết lập hệ thống, xem hướng dẫn triển khai bên dưới.</p><a href="https://github.com/huadim/ptdtnoitrunari#xu%E1%BA%A5t-b%E1%BA%A3n-qua-render">Hướng dẫn triển khai cho nhà trường</a></details>
+    <noscript><p>Bạn có thể mở địa chỉ ứng dụng do trường cấp, sau đó vào đường dẫn <code>/dang-nhap/</code> hoặc <code>/dang-ky/</code>.</p></noscript>
+  </section>
+</main>
+<footer class="access-footer">EDUSCHOOL Manager · Quản lý giáo vụ theo từng nhà trường</footer>
+</body>
+</html>

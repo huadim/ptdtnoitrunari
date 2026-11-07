@@ -2,17 +2,15 @@ from itertools import islice
 from zipfile import BadZipFile, ZipFile
 
 from django.contrib import messages
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.timezone import localdate
 
 from .access import record, require, school_view
 from .common import fail, page, post_form
-from .forms import AccountForm, DutyTypeForm, EmployeeForm, HolidayForm, ImportForm, RateForm, RoleForm
-from .models import Audit, DutyType, Employee, Holiday, Membership, Rate, Role, Slot, State
+from .forms import DutyTypeForm, EmployeeForm, HolidayForm, ImportForm, RateForm
+from .models import Audit, DutyType, Employee, Holiday, Rate
 
 
 def employee_rows(upload):
@@ -121,41 +119,10 @@ def staff(request):
                     rows.filter(pk=employee.pk).update(**data)
                 record(request, f"employee.{action}", f"Nhân sự #{employee.pk}")
             elif action in {"account", "role", "toggle"}:
-                require(request, "settings")
+                from .accounts import account_action
                 employee = get_object_or_404(rows, pk=request.POST.get("id", "0"))
-                member = getattr(employee, "membership", None)
-                if member and member.role == Role.PRINCIPAL:
-                    fail("Tài khoản hiệu trưởng được quản lý bằng công cụ vận hành.")
-                if action == "toggle":
-                    if employee.active and Slot.objects.filter(assigned=employee, day__date__gte=localdate(),
-                                                               day__roster__state__in=[State.APPROVED, State.PUBLISHED]).exists():
-                        fail("Nhân sự còn lịch trực đã duyệt. Hãy xử lý lịch trực thay trước.")
-                    employee.active = not employee.active
-                    employee.save(update_fields=["active"])
-                elif action == "account":
-                    if member:
-                        fail("Nhân sự đã có tài khoản.")
-                    data = post_form(request, AccountForm(request.POST))
-                    if not data:
-                        return redirect("staff")
-                    username = data.pop("username").casefold()
-                    password = data.pop("password")
-                    try:
-                        with transaction.atomic():
-                            if User.objects.filter(username__iexact=username).exists():
-                                fail("Tên đăng nhập đã được sử dụng.")
-                            user = User.objects.create_user(username=username, password=password)
-                            Membership.objects.create(user=user, employee=employee, **delegation(data))
-                    except IntegrityError:
-                        fail("Tên đăng nhập đã được sử dụng.")
-                else:
-                    if not member:
-                        fail("Cần tạo tài khoản trước.")
-                    data = post_form(request, RoleForm(request.POST))
-                    if not data:
-                        return redirect("staff")
-                    Membership.objects.filter(pk=member.pk).update(**delegation(data))
-                record(request, f"employee.{action}", f"Nhân sự #{employee.pk}")
+                if account_action(request, employee, action) is None:
+                    return redirect("staff")
             else:
                 return HttpResponseBadRequest("Thao tác không hợp lệ.")
             messages.success(request, "Đã lưu hồ sơ nhân sự.")
@@ -164,14 +131,7 @@ def staff(request):
         except ValidationError as exc:
             messages.error(request, " ".join(exc.messages))
         return redirect("staff")
-    return page(request, "staff", staff=rows, employee_form=EmployeeForm(), import_form=ImportForm(),
-                account_form=AccountForm(), roles=[role for role in Role.choices if role[0] != Role.PRINCIPAL])
-
-
-def delegation(data):
-    if data["role"] != Role.DEPUTY:
-        data["approve_duty"] = data["approve_attendance"] = False
-    return data
+    return page(request, "staff", staff=rows, employee_form=EmployeeForm(), import_form=ImportForm())
 
 
 @school_view

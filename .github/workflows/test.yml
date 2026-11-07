@@ -32,6 +32,7 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python manage.py makemigrations --check --dry-run
       - run: python manage.py test --verbosity 2
+      - run: node --test tests/access.test.cjs
       - name: Kiểm thử Docker và khởi tạo trường lần đầu
         env:
           DATABASE_URL: postgresql://eduschool:postgres-test@127.0.0.1:5432/eduschool

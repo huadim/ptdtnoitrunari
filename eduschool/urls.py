@@ -5,7 +5,8 @@ from django.urls import path, reverse_lazy
 
 from django.views.decorators.http import require_safe
 
-from school import attendance, home, rosters, staff, timetable
+from school import accounts, attendance, home, rosters, staff, timetable
+from school.access import school_view
 
 @require_safe
 def health(request):
@@ -20,10 +21,13 @@ def health(request):
 urlpatterns = [
     path("healthz/", health, name="health"),
     path("", home.home, name="home"),
+    path("dang-ky/", accounts.register, name="register"),
+    path("tai-khoan/", accounts.accounts, name="accounts"),
+    path("tai-khoan/<int:pk>/", accounts.account_detail, name="account_detail"),
     path("dang-nhap/", home.SchoolLogin.as_view(), name="login"),
     path("dang-xuat/", auth.LogoutView.as_view(), name="logout"),
-    path("doi-mat-khau/", auth.PasswordChangeView.as_view(template_name="school/password.html",
-                                                         success_url=reverse_lazy("home")), name="password"),
+    path("doi-mat-khau/", school_view(auth.PasswordChangeView.as_view(template_name="school/password.html",
+                                                         success_url=reverse_lazy("home"))), name="password"),
     path("nhan-su/", staff.staff, name="staff"),
     path("nhan-su/mau/", staff.staff_template, name="staff_template"),
     path("cau-hinh/", staff.configuration, name="configuration"),
