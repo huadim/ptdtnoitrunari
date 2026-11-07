@@ -40,7 +40,7 @@ textarea { resize: vertical; }
 .sidebar { background: var(--nav); color: white; padding: 24px 14px; display: flex; flex-direction: column; gap: 18px; }
 .brand { color: inherit; display: flex; gap: 10px; align-items: center; text-decoration: none; font-weight: 850; letter-spacing: .035em; }
 .mark { background: #dcecff; color: #164c90; border-radius: 12px; display: grid; place-items: center; width: 40px; height: 40px; font-size: 22px; }
-.brand small { font-size: 10px; letter-spacing: .11em; opacity: .83; display: block; }
+.brand small { color: inherit; font-size: 10px; letter-spacing: .11em; opacity: .83; display: block; }
 .school-name { border-block: 1px solid #3d526b; padding: 10px 4px; color: #dce7f4; overflow-wrap: anywhere; }
 .sidebar nav { display: grid; gap: 3px; }
 .sidebar nav a { display: block; padding: 8px 10px; border-radius: 7px; color: #e4eefb; text-decoration: none; }

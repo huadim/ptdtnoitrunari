@@ -15,6 +15,12 @@
 {% if locked %}<details class="subsection"><summary>Mở lại bảng chấm công</summary><form method="post" class="form-row">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><label>Lý do<input name="reason" maxlength="500" required></label><button name="action" value="unlock">Mở lại</button></form></details>
 {% else %}<form method="post" class="subsection">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><button class="primary" name="action" value="lock">Duyệt và khóa tháng</button></form>{% endif %}
 {% endif %}</section>
+{% if departments %}
+<section class="card"><h2>So sánh theo tổ chuyên môn</h2>
+<div class="table-wrap"><table><thead><tr><th>Tổ chuyên môn</th><th>Nhân sự có ca</th><th>Ca hoàn thành</th><th>Ca chờ xác nhận</th><th>Tổng công</th></tr></thead><tbody>
+{% for row in departments %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}
 {% if not multiple %}<section class="card"><h2>Chi tiết xác nhận</h2>
 <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại trực</th><th>Người trực</th><th>Kết quả</th><th>Công</th>{% if rights.plan and not locked %}<th>Thao tác</th>{% endif %}</tr></thead><tbody>
 {% for slot in details %}<tr><td>{{ slot.day.date|date:"d/m/Y" }}</td><td>{{ slot.day.roster.duty_type.name }}</td><td>{{ slot.assigned.name }}</td>

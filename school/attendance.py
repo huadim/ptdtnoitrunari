@@ -133,6 +133,17 @@ def report(request, slots):
             for employee in sorted(people.values(), key=lambda employee: (employee.name, employee.code))]
 
 
+def department_summary(rows):
+    totals = defaultdict(lambda: [0, 0, 0, Decimal("0")])
+    for row in rows:
+        group = totals[row[1]]
+        group[0] += 1
+        group[1] += row[3]
+        group[2] += row[10]
+        group[3] += row[11]
+    return [(name, *totals[name]) for name in sorted(totals)]
+
+
 HEADERS = ("Họ và tên", "Tổ", "Phân công", "Hoàn thành", "Thường", "T. Bảy", "CN", "Lễ", "Trực thay",
            "Nghỉ / bù", "Chờ xác nhận", "Công")
 
@@ -187,6 +198,7 @@ def attendance(request):
     return page(request, "attendance", month=month, end=end, multiple=end != month, details=details, rows=rows,
                 headers=HEADERS, locked=range_closed(request.school, month, end),
                 results=ConfirmForm.base_fields["result"].choices,
+                departments=department_summary(rows) if request.rights["all_attendance"] else [],
                 totals=(len(rows), sum(row[3] for row in rows), sum(row[10] for row in rows), sum(row[11] for row in rows)))
 
 

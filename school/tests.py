@@ -244,6 +244,7 @@ class SchoolTests(TestCase):
         result = self.client.get(reverse("attendance"), params)
         self.assertEqual(result.context["totals"], (1, 2, 0, Decimal("3")))
         self.assertTrue(result.context["multiple"])
+        self.assertEqual(result.context["departments"], [("Tổ A", 1, 2, 0, Decimal("3"))])
         self.assertNotContains(result, "Duyệt và khóa tháng")
         self.assertEqual(self.client.get(reverse("attendance"), {"month": "2026-01", "end": "2027-01"}).status_code, 400)
         response = self.client.get(reverse("attendance_export", args=["xlsx"]), params)

@@ -42,7 +42,7 @@ Mở [http://127.0.0.1:8000](http://127.0.0.1:8000). Lệnh `seed_demo` in tên 
 3. **Giáo vụ** tạo lịch trực theo tháng và loại trực, xếp thủ công hoặc tự động, khóa ngày cần giữ và trình duyệt. **Hiệu trưởng** hoặc **phó hiệu trưởng được ủy quyền** duyệt rồi công bố.
 4. **Giáo viên** xem ca của mình, gửi đề nghị nghỉ hoặc trực thay. Người có quyền duyệt chọn nhân sự thay và hệ thống lưu cả người ban đầu lẫn người thực hiện. Đề nghị nghỉ trùng ca trực đã duyệt cần xử lý ca thay trước.
 5. **Giáo vụ** xác nhận từng ca đã đến ngày thực hiện. Ca trực thay hoàn thành được tính cho người thay. Người phân công ban đầu vẫn có lượt phân công trong báo cáo. Chấm công lưu nhóm ngày, hệ số và công tại lần xác nhận. **Hiệu trưởng** duyệt và khóa theo tháng. Mở lại cần lý do và được ghi nhật ký.
-6. Chọn phạm vi từ một đến 12 tháng trong **Chấm công và báo cáo** để tổng hợp tháng, quý, học kỳ hoặc năm học theo mốc của trường. Mở PDF A4 để xem trước rồi chọn **In** trong trình xem PDF. Có tệp Word và Excel để chỉnh sửa hoặc đối chiếu.
+6. Chọn phạm vi từ một đến 12 tháng trong **Chấm công và báo cáo** để tổng hợp tháng, quý, học kỳ hoặc năm học theo mốc của trường. Có bảng so sánh số ca và công theo tổ chuyên môn. Mở PDF A4 để xem trước rồi chọn **In** trong trình xem PDF. Có tệp Word và Excel để chỉnh sửa hoặc đối chiếu.
 7. Trong **Thời khóa biểu**, giáo vụ lập tuần, thêm tiết và trình duyệt. Bộ lọc theo lớp, mã giáo viên hoặc phòng áp dụng cả khi xuất tệp.
 
 ## Phân quyền

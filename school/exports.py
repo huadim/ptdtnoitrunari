@@ -25,6 +25,12 @@ def document(request, title, subtitle, headers, rows, filename, format, landscap
     return FileResponse(stream, as_attachment=not inline, filename=f"{filename}.{format}", content_type=MIME[format])
 
 
+def column_weights(headers):
+    if len(headers) == 12:
+        return [2.55, 1.65, 1.05, 1.05, 0.8, 0.75, 0.6, 0.6, 0.85, 0.9, 1.0, 0.75]
+    return [1] * len(headers)
+
+
 def pdf(stream, school, title, subtitle, headers, rows, wide, place):
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -41,13 +47,15 @@ def pdf(stream, school, title, subtitle, headers, rows, wide, place):
     doc = SimpleDocTemplate(stream, pagesize=size, leftMargin=31, rightMargin=31, topMargin=34, bottomMargin=38,
                             title=title, author=school)
     cell = ParagraphStyle("cell", fontName="DejaVu", fontSize=8, leading=11, splitLongWords=True)
+    numeric = ParagraphStyle("numeric", parent=cell, alignment=TA_CENTER)
     header = ParagraphStyle("header", parent=cell, fontName="DejaVuBold", alignment=TA_CENTER)
     heading = ParagraphStyle("heading", parent=header, fontSize=14, leading=19)
     right = ParagraphStyle("right", parent=cell, alignment=TA_RIGHT)
     grid = [[Paragraph(escape(str(text)), header) for text in headers]]
-    grid += [[Paragraph(escape(str(value)), cell) for value in row] for row in rows]
+    grid += [[Paragraph(escape(str(value)), cell if isinstance(value, str) else numeric)
+              for value in row] for row in rows]
     width = size[0] - 74
-    weights = [1.8] + [1] * (len(headers) - 1) if len(headers) >= 8 else [1] * len(headers)
+    weights = column_weights(headers)
     table = LongTable(grid, colWidths=[width * weight / sum(weights) for weight in weights], repeatRows=1, splitInRow=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#efefef")),
@@ -70,12 +78,14 @@ def pdf(stream, school, title, subtitle, headers, rows, wide, place):
 
 def docx(stream, school, title, subtitle, headers, rows, wide, place):
     from docx import Document
+    from docx.enum.section import WD_ORIENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml import OxmlElement
     from docx.shared import Mm, Pt
 
     doc = Document()
     section = doc.sections[0]
+    section.orientation = WD_ORIENT.LANDSCAPE if wide else WD_ORIENT.PORTRAIT
     section.page_width, section.page_height = (Mm(297), Mm(210)) if wide else (Mm(210), Mm(297))
     section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Mm(13)
     normal = doc.styles["Normal"]
@@ -89,14 +99,24 @@ def docx(stream, school, title, subtitle, headers, rows, wide, place):
         run.bold, run.font.size = bold, Pt(size)
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
+    table.autofit = False
+    available = section.page_width - section.left_margin - section.right_margin
+    weights = column_weights(headers)
+    for column, weight in zip(table.columns, weights):
+        column.width = round(available * weight / sum(weights))
+    for cell, column in zip(table.rows[0].cells, table.columns):
+        cell.width = column.width
     table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
     for cell, value in zip(table.rows[0].cells, headers):
         cell.paragraphs[0].add_run(value).bold = True
     for row in rows:
         new = table.add_row()
         new._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
-        for cell, value in zip(new.cells, row):
+        for cell, value, column in zip(new.cells, row, table.columns):
+            cell.width = column.width
             cell.text = str(value)
+            if not isinstance(value, str):
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     paragraph = doc.add_paragraph(f"{place}, ngày …… tháng …… năm ……")
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     paragraph.paragraph_format.keep_with_next = True
@@ -105,6 +125,13 @@ def docx(stream, school, title, subtitle, headers, rows, wide, place):
     for cell, text in zip(signatures.rows[0].cells, SIGNATURES):
         cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         cell.paragraphs[0].add_run(text + "\n\n\n").bold = True
+    footer = section.footer.paragraphs[0]
+    footer.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    footer.add_run("Trang ")
+    field = OxmlElement("w:fldSimple")
+    from docx.oxml.ns import qn
+    field.set(qn("w:instr"), "PAGE")
+    footer._p.append(field)
     doc.save(stream)
 
 
