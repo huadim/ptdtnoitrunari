@@ -2,6 +2,17 @@
 
 Ứng dụng web tiếng Việt cho nghiệp vụ giáo vụ tại Trường PTDT Nội trú Na Rì và các trường khác. Phiên bản đầu tập trung vào lịch trực, chấm công, phân quyền và báo cáo in A4. Dữ liệu được lưu trong cơ sở dữ liệu, với từng tài khoản gắn vào một trường.
 
+## Xuất bản qua Render
+
+[![Triển khai EDUSCHOOL trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhuadim%2Fptdtnoitrunari)
+
+1. Mở nút triển khai, chọn không gian làm việc trên Render và xem lại chi phí. Cấu hình tạo một dịch vụ web và một cơ sở dữ liệu PostgreSQL trả phí tại Singapore.
+2. Điền `EDUSCHOOL_PRINCIPAL_PASSWORD` ngay trên trang Render. Dùng mật khẩu riêng, từ 12 ký tự trở lên, rồi xác nhận **Deploy Blueprint**.
+3. Khi dịch vụ web hiện **Live**, mở địa chỉ `onrender.com` trên trang dịch vụ và đăng nhập bằng `hieutruong.nari`. Trường và tài khoản được tạo tự động.
+4. Sau khi đăng nhập thành công, xóa biến `EDUSCHOOL_PRINCIPAL_PASSWORD` tại **Environment** của dịch vụ web. Những lần triển khai sau giữ nguyên tài khoản và mật khẩu đã đặt. Có thể cập nhật tên hiển thị của hiệu trưởng trong **Nhân sự**.
+
+Cơ sở dữ liệu dùng kết nối nội bộ mã hóa. Hệ thống phục vụ qua HTTPS, cấu hình bí mật Django tự động và dùng PostgreSQL cho dữ liệu trường. Khi muốn đưa phiên bản mới từ GitHub lên, chọn **Manual Deploy → Deploy latest commit** trong dịch vụ Render.
+
 ## Chạy thử trên máy tính
 
 Cần Python 3.12 và phông DejaVu Sans. Trên Debian hoặc Ubuntu, cài gói `fonts-dejavu-core`. Trên Windows, đặt hai tệp `DejaVuSans.ttf` và `DejaVuSans-Bold.ttf` vào một thư mục rồi đặt biến `PDF_FONT_DIR` trỏ tới thư mục đó.

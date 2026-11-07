@@ -1,21 +1,33 @@
 import os
+from hashlib import sha512
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("DJANGO_DEBUG") == "1"
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or ("local-development-only" if DEBUG else "")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+secret_seed = os.getenv("DJANGO_SECRET_SEED", "")
+if not SECRET_KEY and len(secret_seed) >= 43:
+    SECRET_KEY = sha512(secret_seed.encode()).hexdigest()
+if DEBUG and not SECRET_KEY:
+    SECRET_KEY = "local-development-only"
 if not DEBUG and len(SECRET_KEY) < 50:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY phải có ít nhất 50 ký tự ngẫu nhiên.")
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-CSRF_TRUSTED_ORIGINS = [origin for origin in os.getenv("DJANGO_TRUSTED_ORIGINS", "").split(",") if origin]
+default_hosts = os.getenv("RENDER_EXTERNAL_HOSTNAME") or "localhost,127.0.0.1"
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", default_hosts).split(",") if host.strip()]
+default_origin = os.getenv("RENDER_EXTERNAL_URL", "")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.getenv("DJANGO_TRUSTED_ORIGINS", default_origin).split(",") if origin.strip()
+]
 INSTALLED_APPS = [
     "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions",
     "django.contrib.messages", "django.contrib.staticfiles", "school",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -33,14 +45,40 @@ TEMPLATES = [{
     ]},
 }]
 WSGI_APPLICATION = "eduschool.wsgi.application"
-if os.getenv("POSTGRES_HOST"):
+
+
+def postgres_settings():
+    url = os.getenv("DATABASE_URL")
+    if url:
+        try:
+            database = urlsplit(url)
+            if database.scheme not in {"postgres", "postgresql"} or not database.hostname or not database.path.strip("/"):
+                raise ValueError
+            return {
+                "NAME": unquote(database.path[1:]),
+                "USER": unquote(database.username or ""),
+                "PASSWORD": unquote(database.password or ""),
+                "HOST": database.hostname,
+                "PORT": str(database.port or 5432),
+            }
+        except ValueError:
+            raise ImproperlyConfigured("DATABASE_URL phải là địa chỉ PostgreSQL hợp lệ.") from None
+    if os.getenv("POSTGRES_HOST"):
+        return {
+            "NAME": os.getenv("POSTGRES_DB", "eduschool"),
+            "USER": os.getenv("POSTGRES_USER", "eduschool"),
+            "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+            "HOST": os.environ["POSTGRES_HOST"],
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
+    return {}
+
+
+postgres = postgres_settings()
+if postgres:
     DATABASES = {"default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "eduschool"),
-        "USER": os.getenv("POSTGRES_USER", "eduschool"),
-        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
-        "HOST": os.environ["POSTGRES_HOST"],
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        **postgres,
         "OPTIONS": {"sslmode": os.getenv("POSTGRES_SSLMODE", "prefer")},
         "CONN_MAX_AGE": 60,
     }}
@@ -60,6 +98,11 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+if not DEBUG:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
@@ -68,6 +111,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_AGE = 12 * 60 * 60
 SECURE_SSL_REDIRECT = not DEBUG
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_REFERRER_POLICY = "same-origin"
 if os.getenv("DJANGO_TRUST_PROXY") == "1":

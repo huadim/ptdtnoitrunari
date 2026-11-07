@@ -1,11 +1,15 @@
+import os
 from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -278,3 +282,26 @@ class SchoolTests(TestCase):
         roster = self.roster(today.replace(day=1))
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.slot(roster, today, self.teacher.employee, self.foreign.employee)
+
+
+
+class DeploymentTests(TestCase):
+    def test_bootstrap_creates_principal_once_and_preserves_password(self):
+        args = ["--if-missing", "--slug", "na-ri", "--name", "Trường Nội trú",
+                "--location", "Na Rì", "--username", "principal.nari", "--principal", "Hiệu trưởng"]
+        with patch.dict(os.environ, {"EDUSCHOOL_PRINCIPAL_PASSWORD": ""}):
+            with self.assertRaisesMessage(CommandError, "EDUSCHOOL_PRINCIPAL_PASSWORD"):
+                call_command("create_school", *args, stdout=StringIO())
+        self.assertFalse(School.objects.exists())
+        with patch.dict(os.environ, {"EDUSCHOOL_PRINCIPAL_PASSWORD": PASSWORD}):
+            call_command("create_school", *args, stdout=StringIO())
+        member = Membership.objects.select_related("user", "employee__school").get()
+        self.assertEqual((member.role, member.employee.school.slug), (Role.PRINCIPAL, "na-ri"))
+        self.assertTrue(member.user.check_password(PASSWORD))
+        password_hash = member.user.password
+        with patch.dict(os.environ, {"EDUSCHOOL_PRINCIPAL_PASSWORD": ""}):
+            call_command("create_school", *args, stdout=StringIO())
+        member.user.refresh_from_db()
+        self.assertEqual(member.user.password, password_hash)
+        self.assertEqual(School.objects.count(), 1)
+        self.assertEqual(DutyType.objects.count(), 1)

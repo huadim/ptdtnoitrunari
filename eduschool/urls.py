@@ -1,9 +1,24 @@
 from django.contrib.auth import views as auth
+from django.db import OperationalError, connection
+from django.http import HttpResponse
 from django.urls import path, reverse_lazy
+
+from django.views.decorators.http import require_safe
 
 from school import attendance, home, rosters, staff, timetable
 
+@require_safe
+def health(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except OperationalError:
+        return HttpResponse("unavailable", status=503, content_type="text/plain")
+    return HttpResponse("ok", content_type="text/plain")
+
+
 urlpatterns = [
+    path("healthz/", health, name="health"),
     path("", home.home, name="home"),
     path("dang-nhap/", home.SchoolLogin.as_view(), name="login"),
     path("dang-xuat/", auth.LogoutView.as_view(), name="logout"),
