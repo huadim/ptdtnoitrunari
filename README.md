@@ -6,6 +6,28 @@
 
 Mở **Settings → Pages** trong kho GitHub. Chọn **Deploy from a branch**, chọn nhánh **main** và thư mục **/docs**, sau đó bấm **Save**. GitHub hiển thị địa chỉ trang ở mục **Visit site** khi xuất bản xong. Trang này giới thiệu phần mềm và dẫn tới hướng dẫn triển khai. Nút Đăng nhập và Đăng ký mở cổng truy cập để nhập địa chỉ ứng dụng HTTPS do trường cấp. Tính năng đăng nhập và dữ liệu dùng chung chạy trên máy chủ theo phần bên dưới.
 
+## Triển khai miễn phí trên DockHosting
+
+Chọn gói [Free của DockHosting](https://dockhosting.dev/pricing), có một PostgreSQL 500 MB và địa chỉ HTTPS. Gói này dùng được để chạy thử với nhóm nhỏ. Ứng dụng có thể cần khởi động lại khi có lượt truy cập sau một thời gian nhàn rỗi. Kiểm tra giới hạn sao lưu trước khi nhập dữ liệu thật.
+
+1. Mở [DockHosting](https://app.dockhosting.dev/register), tạo tài khoản Free và kết nối kho GitHub `huadim/ptdtnoitrunari`.
+2. Tạo dự án từ nhánh `main`, thư mục gốc. Chọn Dockerfile, cổng `8000` và Start command `sh deploy/start.sh --bootstrap`.
+3. Tạo PostgreSQL gói Free và gắn với dự án. Kiểm tra biến kết nối PostgreSQL nội bộ được gắn dưới tên `DATABASE_URL`.
+4. Chọn địa chỉ do DockHosting cấp và thêm các biến môi trường sau trong **Settings → Variables**.
+
+| Biến | Giá trị |
+|---|---|
+| `DJANGO_ALLOWED_HOSTS` | Tên miền thật của ứng dụng, dạng `ten-cua-truong.dockhosting.cloud`, không có `https://`. |
+| `DJANGO_TRUSTED_ORIGINS` | Địa chỉ HTTPS đầy đủ của ứng dụng. |
+| `DJANGO_TRUST_PROXY` | `1` để Django nhận HTTPS từ proxy của DockHosting. |
+| `DJANGO_SECRET_KEY` | Khóa ngẫu nhiên riêng, ít nhất 50 ký tự. Ví dụ tạo trên máy bằng `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
+| `EDUSCHOOL_PRINCIPAL_USERNAME` | Email dùng làm tên đăng nhập hiệu trưởng. |
+| `EDUSCHOOL_PRINCIPAL_PASSWORD` | Mật khẩu riêng ít nhất 12 ký tự, nhập trực tiếp vào Settings. |
+| `WEB_CONCURRENCY` | `1` cho gói Free. |
+
+5. Bấm **Deploy**. Khi trang lên, mở địa chỉ HTTPS của dự án, đăng nhập bằng email đã cấu hình rồi dùng **Tài khoản và phân quyền** để cấp tài khoản giáo viên.
+6. Sau khi đăng nhập được, xóa `EDUSCHOOL_PRINCIPAL_PASSWORD` khỏi biến môi trường. Giữ đúng tên đăng nhập đã dùng khi tạo trường để các lần khởi động sau nhận ra tài khoản hiện có.
+
 ## Xuất bản qua Render
 
 [![Triển khai EDUSCHOOL trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhuadim%2Fptdtnoitrunari)

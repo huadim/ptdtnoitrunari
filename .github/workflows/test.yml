@@ -49,7 +49,11 @@ jobs:
           runtime=(--network host -e DATABASE_URL -e RENDER_EXTERNAL_HOSTNAME -e RENDER_EXTERNAL_URL
                    -e DJANGO_SECRET_SEED -e DJANGO_TRUST_PROXY -e WEB_CONCURRENCY
                    -e EDUSCHOOL_PRINCIPAL_USERNAME -e PORT=10000)
-          docker run --rm "${runtime[@]}" -e EDUSCHOOL_PRINCIPAL_PASSWORD eduschool-verify sh deploy/render-release.sh
+          docker run -d --name eduschool-verify "${runtime[@]}" -e EDUSCHOOL_PRINCIPAL_PASSWORD eduschool-verify sh deploy/start.sh --bootstrap
+          trap 'docker logs eduschool-verify && docker rm -f eduschool-verify' EXIT
+          local_url=http://127.0.0.1:10000
+          curl_opts=(-fsS --retry 12 --retry-connrefused --retry-delay 2 -H "Host: $RENDER_EXTERNAL_HOSTNAME")
+          curl "${curl_opts[@]}" "$local_url/healthz/" | grep -Fx ok
           docker run --rm "${runtime[@]}" eduschool-verify sh deploy/render-release.sh
           docker run --rm "${runtime[@]}" -e EDUSCHOOL_PRINCIPAL_PASSWORD eduschool-verify python manage.py shell -c '
           import os
@@ -57,11 +61,6 @@ jobs:
           user = authenticate(username=os.environ["EDUSCHOOL_PRINCIPAL_USERNAME"], password=os.environ["EDUSCHOOL_PRINCIPAL_PASSWORD"])
           assert user is not None and user.membership.role == "principal"
           '
-          docker run -d --name eduschool-verify "${runtime[@]}" eduschool-verify
-          trap 'docker logs eduschool-verify && docker rm -f eduschool-verify' EXIT
-          local_url=http://127.0.0.1:10000
-          curl_opts=(-fsS --retry 12 --retry-connrefused --retry-delay 2 -H "Host: $RENDER_EXTERNAL_HOSTNAME")
-          curl "${curl_opts[@]}" "$local_url/healthz/" | grep -Fx ok
           curl "${curl_opts[@]}" -H 'X-Forwarded-Proto: https' "$local_url/dang-nhap/" > /tmp/eduschool-login.html
           grep -Fq 'Đăng nhập' /tmp/eduschool-login.html
           css="$(sed -n 's@.*href="\(/static/school/app\.[^"]*\.css\)".*@\1@p' /tmp/eduschool-login.html)"
