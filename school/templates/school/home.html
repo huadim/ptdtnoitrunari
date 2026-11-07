@@ -1,0 +1,14 @@
+{% extends "school/base.html" %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Trang làm việc · {{ today|date:"d/m/Y" }}</span><h1>Tổng quan giáo vụ</h1><p>Xin chào {{ member.employee.name }}. Xem các ca trực sắp tới và thông báo mới của bạn.</p></header>
+<div class="metrics">
+  {% if summary %}<div class="metric"><span>Nhân sự đang hoạt động</span><strong>{{ summary.0 }}</strong></div><div class="metric"><span>Lịch trực tháng này</span><strong>{{ summary.1 }}</strong></div><div class="metric"><span>Lịch đã công bố</span><strong>{{ summary.2 }}</strong></div>{% endif %}
+  <a class="metric" href="{% url 'notifications' %}"><span>Thông báo chưa đọc</span><strong>{{ unread }}</strong></a>
+</div>
+<div class="panels">
+<section class="card"><div class="card-head"><h2>Lịch trực của tôi</h2><a href="{% url 'rosters' %}">Xem lịch</a></div>
+{% for slot in upcoming %}<div class="list-item"><strong>{{ slot.day.date|date:"d/m/Y" }}</strong><a href="{% url 'roster' slot.day.roster_id %}">{{ slot.day.roster.duty_type.name }}</a></div>{% empty %}<p class="empty">Bạn chưa có ca trực sắp tới.</p>{% endfor %}</section>
+<section class="card"><div class="card-head"><h2>Thông báo mới</h2><a href="{% url 'notifications' %}">Xem thông báo</a></div>
+{% for item in notes %}<div class="list-item"><span>{{ item.text }}</span><small>{{ item.created_at|date:"d/m" }}</small></div>{% empty %}<p class="empty">Bạn đã xem hết thông báo.</p>{% endfor %}</section>
+</div>
+{% endblock %}

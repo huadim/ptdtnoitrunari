@@ -1,0 +1,26 @@
+{% extends "school/base.html" %}
+{% block title %}Chấm công và báo cáo{% endblock %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Chấm công và báo cáo</span><h1>{% if rights.all_attendance %}Báo cáo chấm công toàn trường{% elif rights.department %}Chấm công tổ chuyên môn{% else %}Chấm công cá nhân{% endif %}</h1>
+<p>Chấm công tháng {{ month|date:"m/Y" }}{% if multiple %} đến {{ end|date:"m/Y" }}{% endif %} từ các lịch trực đã công bố.</p></header>
+<div class="card card-head">
+<form method="get" class="form-row"><label>Từ tháng<input type="month" name="month" value="{{ month|date:'Y-m' }}" required></label><label>Đến tháng (tùy chọn)<input type="month" name="end" {% if multiple %}value="{{ end|date:'Y-m' }}"{% endif %}></label><button>Lọc báo cáo</button></form>
+<div class="actions exports"><a class="button primary" href="{% url 'attendance_export' 'pdf' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Xem và in PDF A4</a><a class="button" href="{% url 'attendance_export' 'docx' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Word</a><a class="button" href="{% url 'attendance_export' 'xlsx' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Excel</a></div></div>
+<div class="metrics"><div class="metric"><span>Nhân sự có ca</span><strong>{{ totals.0 }}</strong></div><div class="metric"><span>Ca đã hoàn thành</span><strong>{{ totals.1 }}</strong></div><div class="metric"><span>Ca chưa xác nhận</span><strong>{{ totals.2 }}</strong></div><div class="metric"><span>Tổng công quy đổi</span><strong>{{ totals.3 }}</strong></div></div>
+<section class="card"><div class="card-head"><h2>Tổng hợp theo nhân sự</h2><span class="badge {% if locked %}approved{% endif %}">{% if locked %}Đã duyệt và khóa{% else %}Chưa khóa{% endif %}</span></div>
+<div class="table-wrap"><table><thead><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="12" class="empty">Chưa có dữ liệu từ lịch trực đã công bố cho tháng này.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if rights.attendance_approve and not multiple %}
+{% if locked %}<details class="subsection"><summary>Mở lại bảng chấm công</summary><form method="post" class="form-row">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><label>Lý do<input name="reason" maxlength="500" required></label><button name="action" value="unlock">Mở lại</button></form></details>
+{% else %}<form method="post" class="subsection">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><button class="primary" name="action" value="lock">Duyệt và khóa tháng</button></form>{% endif %}
+{% endif %}</section>
+{% if not multiple %}<section class="card"><h2>Chi tiết xác nhận</h2>
+<div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại trực</th><th>Người trực</th><th>Kết quả</th><th>Công</th>{% if rights.plan and not locked %}<th>Thao tác</th>{% endif %}</tr></thead><tbody>
+{% for slot in details %}<tr><td>{{ slot.day.date|date:"d/m/Y" }}</td><td>{{ slot.day.roster.duty_type.name }}</td><td>{{ slot.assigned.name }}</td>
+<td>{% if slot.attendance %}<span class="badge">{{ slot.attendance.get_result_display }}</span><small class="block">{{ slot.attendance.note }}</small>{% else %}<span class="badge pending">Chưa xác nhận</span>{% endif %}</td>
+<td>{{ slot.attendance.units|default_if_none:"—"|default:"—" }}</td>
+{% if rights.plan and not locked %}<td><details><summary>Xác nhận ca</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="hidden" name="slot" value="{{ slot.pk }}"><label>Kết quả<select name="result" required>{% for key, label in results %}<option value="{{ key }}" {% if slot.attendance.result == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label>Ghi chú<input name="note" maxlength="500" value="{{ slot.attendance.note }}"></label><button class="primary" name="action" value="confirm">Lưu kết quả</button></form></details></td>{% endif %}
+</tr>{% empty %}<tr><td colspan="6" class="empty">Chưa có ca trực để xác nhận.</td></tr>{% endfor %}
+</tbody></table></div></section>{% endif %}
+{% endblock %}

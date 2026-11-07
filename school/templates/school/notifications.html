@@ -1,0 +1,7 @@
+{% extends "school/base.html" %}
+{% block title %}Thông báo{% endblock %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Cá nhân</span><h1>Thông báo</h1></header>
+<section class="card"><div class="card-head"><h2>Thông báo của tôi</h2><form method="post">{% csrf_token %}<button>Đánh dấu tất cả đã đọc</button></form></div>
+{% for item in notes %}<div class="list-item"><span>{% if not item.seen %}<span class="badge">Mới</span> {% endif %}{{ item.text }}</span><small>{{ item.created_at|date:"H:i d/m/Y" }}</small></div>{% empty %}<p class="empty">Chưa có thông báo.</p>{% endfor %}</section>
+{% endblock %}

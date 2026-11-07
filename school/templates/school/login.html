@@ -1,0 +1,23 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập · EDUSCHOOL</title>
+  <link rel="stylesheet" href="{% static 'school/app.css' %}">
+</head>
+<body class="login">
+  <main class="login-wrap">
+    <section class="login-intro"><div class="brand"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>QUẢN LÝ GIÁO VỤ</small></span></div>
+    <h1>Một nơi cho công việc giáo vụ hằng ngày</h1><p>Quản lý thời khóa biểu, lịch trực và chấm công tại trường.</p></section>
+    <section class="login-card"><span class="eyebrow">Cổng nội bộ nhà trường</span><h2>Đăng nhập</h2><p>Dùng tài khoản do nhà trường cấp.</p>
+    <form method="post" class="stack">{% csrf_token %}{{ form.non_field_errors }}
+      <label for="id_username">Tên đăng nhập</label>{{ form.username }}{{ form.username.errors }}
+      <label for="id_password">Mật khẩu</label>{{ form.password }}{{ form.password.errors }}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button class="primary">Đăng nhập</button>
+    </form></section>
+  </main>
+</body>
+</html>

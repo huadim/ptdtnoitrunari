@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eduschool
+      POSTGRES_USER: eduschool
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Cần cấu hình POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduschool -d eduschool"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Cần cấu hình POSTGRES_PASSWORD}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Cần cấu hình DJANGO_SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: ${EDUSCHOOL_DOMAIN:?Cần cấu hình EDUSCHOOL_DOMAIN}
+      DJANGO_TRUSTED_ORIGINS: https://${EDUSCHOOL_DOMAIN}
+      DJANGO_TRUST_PROXY: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - static:/app/staticfiles
+    command: ["/bin/sh", "-ec", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && exec gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 60 eduschool.wsgi:application"]
+  gateway:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      EDUSCHOOL_DOMAIN: ${EDUSCHOOL_DOMAIN:?Cần cấu hình EDUSCHOOL_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - static:/srv:ro
+    depends_on: [web]
+volumes:
+  postgres-data:
+  caddy-data:
+  static:

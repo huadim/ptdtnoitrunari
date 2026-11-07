@@ -1,0 +1,25 @@
+{% extends "school/base.html" %}
+{% block title %}Cấu hình nhà trường{% endblock %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Quản trị</span><h1>Cấu hình nhà trường</h1><p>Thiết lập số người trực, khoảng cách, ngày lễ và mức công theo ngày hiệu lực.</p></header>
+<div class="panels">
+<details class="card"><summary>Thêm loại trực</summary><form class="stack" method="post">{% csrf_token %}{{ type_form.as_p }}<button name="action" value="type" class="primary">Tạo loại trực</button></form></details>
+<details class="card"><summary>Thêm ngày lễ</summary><form class="stack" method="post">{% csrf_token %}{{ holiday_form.as_p }}<button name="action" value="holiday" class="primary">Lưu ngày lễ</button></form></details>
+</div>
+<section class="card"><h2>Loại trực và quy tắc</h2><p class="hint">Để áp dụng quy tắc mới cho một lịch nháp đã tạo, mở lịch đó và chọn Nạp quy tắc hiện hành.</p>
+{% for kind in types %}<details class="subsection"><summary>{{ kind.name }} · {{ kind.people }} người/ngày</summary>
+<div class="panels"><form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}">
+<label>Tên loại trực<input name="name" value="{{ kind.name }}" maxlength="100" required></label>
+<label>Số người/ngày<input name="people" type="number" min="1" max="4" value="{{ kind.people }}" required></label>
+<label>Khoảng cách bắt buộc<input name="min_gap" type="number" min="1" max="30" value="{{ kind.min_gap }}" required></label>
+<label>Khoảng cách ưu tiên từ<input name="preferred_min" type="number" min="1" max="30" value="{{ kind.preferred_min }}" required></label>
+<label>Khoảng cách ưu tiên đến<input name="preferred_max" type="number" min="1" max="30" value="{{ kind.preferred_max }}" required></label>
+<label>Số ngày trực cuối tuần cặp phải nghỉ<input name="pair_rest" type="number" min="0" max="20" value="{{ kind.pair_rest }}" required></label>
+<button name="action" value="type">Lưu quy tắc</button></form>
+<form class="stack" method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ kind.pk }}"><strong>Thêm hệ số cho {{ kind.name }}</strong>{{ rate_form.as_p }}<button name="action" value="rate" class="primary">Lưu mức công</button></form></div>
+</details>{% empty %}<p class="empty">Chưa có loại trực.</p>{% endfor %}</section>
+<div class="panels">
+<section class="card"><h2>Lịch sử mức công</h2><div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Hiệu lực</th><th>Nhóm ngày</th><th>Công</th></tr></thead><tbody>{% for rate in rates %}<tr><td>{{ rate.duty_type.name }}</td><td>{{ rate.effective|date:"d/m/Y" }}</td><td>{{ rate.get_kind_display }}</td><td>{{ rate.units }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa có hệ số quy đổi.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Ngày lễ đã cấu hình</h2>{% for day in holidays %}<div class="list-item"><strong>{{ day.date|date:"d/m/Y" }}</strong><span>{{ day.label }}</span></div>{% empty %}<p class="empty">Chưa có ngày lễ.</p>{% endfor %}</section>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+<div class="actions">
+  {% if rights.plan and object.state == 'draft' %}
+  <form method="post">{% csrf_token %}<button class="primary" name="action" value="submit">Trình duyệt</button></form>
+  {% endif %}
+  {% if rights.duty_approve %}
+  {% if object.state == 'submitted' %}<form method="post">{% csrf_token %}<button class="primary" name="action" value="approve">Phê duyệt</button></form>{% endif %}
+  {% if object.state == 'approved' %}<form method="post">{% csrf_token %}<button class="primary" name="action" value="publish">Công bố</button></form>{% endif %}
+  {% if object.state == 'submitted' or object.state == 'approved' %}<form method="post">{% csrf_token %}<button name="action" value="return">Trả về bản nháp</button></form>{% endif %}
+  {% endif %}
+</div>

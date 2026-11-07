@@ -1,0 +1,20 @@
+{% extends "school/base.html" %}
+{% block title %}Nghỉ và trực thay{% endblock %}
+{% block content %}
+<header class="page-head"><span class="eyebrow">Lịch cá nhân</span><h1>Nghỉ và trực thay</h1><p>Gửi đề nghị nghỉ hoặc yêu cầu tìm người thay cho ca đã công bố.</p></header>
+<div class="panels">
+<details class="card"><summary>Gửi đề nghị nghỉ hoặc báo bận</summary><form method="post" class="stack">{% csrf_token %}{{ leave_form.as_p }}<button class="primary" name="action" value="leave">Gửi đề nghị</button></form></details>
+<details class="card"><summary>Gửi đề nghị trực thay</summary><form method="post" class="stack">{% csrf_token %}
+<label>Ca của bạn<select name="slot" required>{% for slot in upcoming %}<option value="{{ slot.pk }}">{{ slot.day.date|date:"d/m/Y" }} · {{ slot.day.roster.duty_type.name }}</option>{% empty %}<option value="">Chưa có ca sắp tới</option>{% endfor %}</select></label>
+<label>Lý do<textarea name="reason" rows="2" maxlength="500" required></textarea></label><button class="primary" name="action" value="swap">Gửi đề nghị</button></form></details>
+</div>
+<section class="card"><h2>Theo dõi đề nghị</h2><div class="table-wrap"><table><thead><tr><th>Người đề nghị</th><th>Loại / thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Xử lý</th></tr></thead><tbody>
+{% for item in items %}<tr><td>{{ item.employee.name }}</td><td><strong>{% if item.slot_id %}Trực thay{% else %}Nghỉ / báo bận{% endif %}</strong><small class="block">{{ item.start|date:"d/m/Y" }}{% if item.end != item.start %} – {{ item.end|date:"d/m/Y" }}{% endif %}</small></td><td>{{ item.reason }}</td><td><span class="badge {{ item.status }}">{{ item.get_status_display }}</span>{% if item.replacement %}<small class="block">Trực thay: {{ item.replacement.name }}</small>{% endif %}</td><td>
+{% if item.status == 'pending' %}<div class="stack">
+{% if rights.duty_approve %}<form method="post" class="stack">{% csrf_token %}<input type="hidden" name="id" value="{{ item.pk }}">
+{% if item.slot_id %}<label>Người thay<select name="replacement" required><option value="">Chọn nhân sự</option>{% for employee in options %}{% if employee.pk != item.employee_id %}<option value="{{ employee.pk }}">{{ employee }}</option>{% endif %}{% endfor %}</select></label>{% endif %}
+<div class="actions"><button class="primary" name="action" value="accept">Duyệt</button><button name="action" value="reject" formnovalidate>Từ chối</button></div></form>{% endif %}
+{% if item.employee_id == member.employee_id %}<form method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ item.pk }}"><button name="action" value="cancel">Hủy đề nghị</button></form>{% endif %}
+</div>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="empty">Chưa có đề nghị.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

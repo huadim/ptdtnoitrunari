@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tổng quan{% endblock %} · EDUSCHOOL</title>
+  <link rel="stylesheet" href="{% static 'school/app.css' %}">
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua menu</a>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="{% url 'home' %}"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>QUẢN LÝ GIÁO VỤ</small></span></a>
+    <div class="school-name">{{ school.name }}</div>
+    {% with current=request.resolver_match.url_name %}
+    <nav aria-label="Phân hệ">
+      <span class="nav-label">Nghiệp vụ</span>
+      <a href="{% url 'home' %}" {% if current == 'home' %}aria-current="page"{% endif %}>Tổng quan</a>
+      {% if rights.plan %}<a href="{% url 'staff' %}" {% if current == 'staff' %}aria-current="page"{% endif %}>Nhân sự</a>{% endif %}
+      <a href="{% url 'timetable' %}" {% if current == 'timetable' or current == 'week' %}aria-current="page"{% endif %}>Thời khóa biểu</a>
+      <a href="{% url 'rosters' %}" {% if current == 'rosters' or current == 'roster' %}aria-current="page"{% endif %}>Lịch trực</a>
+      <a href="{% url 'requests' %}" {% if current == 'requests' %}aria-current="page"{% endif %}>Nghỉ và trực thay</a>
+      <a href="{% url 'attendance' %}" {% if current == 'attendance' %}aria-current="page"{% endif %}>Chấm công và báo cáo</a>
+      <a href="{% url 'notifications' %}" {% if current == 'notifications' %}aria-current="page"{% endif %}>Thông báo</a>
+      {% if rights.settings %}
+      <span class="nav-label">Quản trị</span>
+      <a href="{% url 'configuration' %}" {% if current == 'configuration' %}aria-current="page"{% endif %}>Cấu hình nhà trường</a>
+      <a href="{% url 'audits' %}" {% if current == 'audits' %}aria-current="page"{% endif %}>Nhật ký thao tác</a>
+      {% endif %}
+    </nav>
+    {% endwith %}
+    <div class="account"><strong>{{ member.employee.name }}</strong><small>{{ member.get_role_display }}</small><div class="account-links"><a href="{% url 'password' %}">Đổi mật khẩu</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="text-button">Đăng xuất</button></form></div></div>
+  </aside>
+  <main id="main">
+    {% if messages %}<div class="alerts" aria-live="polite">{% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>
