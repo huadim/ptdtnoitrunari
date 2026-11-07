@@ -18,7 +18,8 @@ from docx import Document
 from openpyxl import Workbook, load_workbook
 
 from .models import (AccountInvitation, Attendance, Audit, DayKind, Decision, DutyDay, DutyType, Employee, Holiday, Lesson,
-                     LoginBucket, Membership, MonthClose, Rate, Request, Result, Role, Roster, School, Slot, State, TimetableWeek)
+                     LoginBucket, Membership, MonthClose, PayRate, Rate, Request, Result, Role, Roster, School, Slot,
+                     State, TimetableWeek)
 from .scheduling import Rules
 
 PASSWORD = "A-very-strong-password-for-tests-only"
@@ -318,6 +319,85 @@ class SchoolTests(TestCase):
         report = self.client.get(reverse("attendance"), {"month": "2026-10"})
         self.assertContains(report, f'{reverse("rosters")}?month=2026-10')
         self.assertContains(report, f'href="{reverse("roster", args=[roster.pk])}"')
+
+    def test_round_crosses_month_and_conflicts_are_explained(self):
+        self.sign(self.office)
+        create = {"action": "round", "round_number": 7, "duty_type": self.kind.pk,
+                  "start": "2026-10-31", "end": "2026-11-02"}
+        self.client.post(reverse("rosters"), create)
+        roster = Roster.objects.get(round_number=7)
+        october, november, home_day = list(roster.dutyday_set.all())
+        self.client.post(reverse("rosters"), create)
+        self.assertEqual(Roster.objects.count(), 1)
+        response = self.follow("rosters", {**create, "round_number": 8})
+        self.assertContains(response, "Khoảng ngày trùng")
+        self.assertContains(self.client.get(reverse("rosters"), {"month": "2026-11"}), "Lượt 07")
+        employee = self.teacher.employee
+        Request.objects.create(employee=employee, start=october.date, end=october.date, reason="Nghỉ",
+                               status=Decision.APPROVED)
+        data = {"action": "assign", "day": october.pk}
+        response = self.follow("roster", {**data, "employees": [employee.pk]}, roster.pk)
+        self.assertContains(response, "Ngày 31/10/2026:")
+        self.assertContains(response, f"{employee.name} đã được duyệt nghỉ.")
+        self.assertContains(response, "data-warning=")
+        response = self.follow("roster", {**data, "employees": [person.pk for person in self.others[:3]]}, roster.pk)
+        self.assertContains(response, "Đã chọn 3 người, tối đa 2 người")
+        self.assertFalse(Slot.objects.exists())
+        self.client.post(reverse("roster", args=[roster.pk]), {"action": "toggle_required", "day": home_day.pk})
+        self.assertTrue(DutyDay.objects.get(pk=home_day.pk).not_required)
+        self.client.post(reverse("roster", args=[roster.pk]), {"action": "generate"})
+        self.assertEqual(october.slots.count(), 2)
+        self.assertEqual(november.slots.count(), 2)
+        self.assertFalse(home_day.slots.exists())
+        self.client.post(reverse("roster", args=[roster.pk]), {"action": "submit"})
+        self.sign(self.principal)
+        for action in ("approve", "publish"):
+            self.client.post(reverse("roster", args=[roster.pk]), {"action": action})
+        for month, date in (("2026-10", october.date), ("2026-11", november.date)):
+            report = self.client.get(reverse("attendance"), {"month": month})
+            self.assertEqual([slot.day.date for slot in report.context["details"]], [date, date])
+
+    def test_weekend_rest_is_per_person_and_respects_type_eligibility(self):
+        teacher = self.teacher.employee
+        self.kind.eligible_staff.add(teacher)
+        previous = self.roster(date(2026, 10, 1), state=State.PUBLISHED)
+        self.slot(previous, date(2026, 10, 31), teacher)
+        roster = self.roster(date(2026, 11, 1), weekend_rest=2)
+        DutyDay.objects.create(roster=roster, date=date(2026, 11, 14))
+        DutyDay.objects.create(roster=roster, date=date(2026, 11, 21))
+        rules = Rules(roster)
+        self.assertIn("cuối tuần nghỉ", " ".join(rules.reasons(date(2026, 11, 14), [teacher.pk], {})))
+        self.assertEqual(rules.reasons(date(2026, 11, 21), [teacher.pk], {}), [])
+        self.assertIn("chưa được phép", " ".join(rules.reasons(date(2026, 11, 21), [self.others[0].pk], {})))
+
+    def test_partial_attendance_and_scoped_daily_and_payment_exports(self):
+        day = date(2026, 9, 4)
+        roster = self.roster(day.replace(day=1), state=State.PUBLISHED)
+        slot = self.slot(roster, day, self.teacher.employee, assigned=self.others[0])
+        Rate.objects.create(duty_type=self.kind, effective=day, kind=DayKind.WEEKDAY, units=1)
+        PayRate.objects.create(duty_type=self.kind, effective=day, unit_price=134000, reference="Biểu thử")
+        self.sign(self.office)
+        data = {"action": "confirm", "month": "2026-09", "slot": slot.pk, "result": Result.PARTIAL, "units": "0.50"}
+        with patch("school.attendance.localdate", return_value=day):
+            self.assertContains(self.follow("attendance", data), "Ghi lý do xác nhận")
+            self.assertFalse(Attendance.objects.filter(slot=slot).exists())
+            self.client.post(reverse("attendance"), {**data, "note": "Chỉ trực buổi sáng"})
+        entry = Attendance.objects.get(slot=slot)
+        self.assertEqual((entry.actual, entry.units, entry.unit_price), (self.others[0], Decimal("0.50"), 134000))
+
+        url = reverse("attendance_export", args=["xlsx"])
+        params = {"month": "2026-09"}
+        self.assertEqual(self.client.get(url, {**params, "view": "pay"}).status_code, 403)
+        self.sign(self.principal)
+        daily = self.client.get(url, {**params, "view": "daily"})
+        sheet = load_workbook(BytesIO(b"".join(daily.streaming_content))).active
+        self.assertEqual(sheet["F5"].value, 0.5)
+        self.assertEqual(sheet["AF4"].value, "30")
+        self.assertEqual(sheet["AG5"].data_type, "f")
+        pdf = self.client.get(reverse("attendance_export", args=["pdf"]), {**params, "view": "daily"})
+        self.assertTrue(b"".join(pdf.streaming_content).startswith(b"%PDF-"))
+        pay = self.client.get(url, {**params, "view": "pay"})
+        self.assertEqual(load_workbook(BytesIO(b"".join(pay.streaming_content))).active["E5"].value, 67000)
 
     @skipUnless(connection.vendor == "postgresql", "Kiểm tra trigger trên PostgreSQL")
     def test_postgres_rejects_cross_tenant_assignment(self):

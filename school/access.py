@@ -24,6 +24,7 @@ def permissions(member):
         "attendance_approve": attendance,
         "all_duty": principal or office or duty or attendance,
         "all_attendance": principal or office or attendance,
+        "attendance_money": principal,
         "all_timetable": principal or office or duty,
         "department": member.role == Role.LEAD and bool(member.employee.department),
     }

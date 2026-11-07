@@ -7,6 +7,17 @@
 <div class="card card-head">
 <form method="get" class="form-row"><label>Từ tháng<input type="month" name="month" value="{{ month|date:'Y-m' }}" required></label><label>Đến tháng (tùy chọn)<input type="month" name="end" {% if multiple %}value="{{ end|date:'Y-m' }}"{% endif %}></label><button>Lọc báo cáo</button></form>
 <div class="actions exports"><a class="button primary" href="{% url 'attendance_export' 'pdf' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Xem và in PDF A4</a><a class="button" href="{% url 'attendance_export' 'docx' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Word</a><a class="button" href="{% url 'attendance_export' 'xlsx' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}">Excel</a></div></div>
+{% if not multiple %}<div class="actions exports">
+<strong>Bảng công theo ngày (C01-HD)</strong>
+<a class="button" href="{% url 'attendance_export' 'pdf' %}?month={{ month|date:'Y-m' }}&amp;view=daily">PDF A4</a>
+<a class="button" href="{% url 'attendance_export' 'docx' %}?month={{ month|date:'Y-m' }}&amp;view=daily">Word</a>
+<a class="button" href="{% url 'attendance_export' 'xlsx' %}?month={{ month|date:'Y-m' }}&amp;view=daily">Excel</a>
+</div>{% endif %}
+{% if rights.attendance_money %}<div class="actions exports">
+<strong>Bảng tính tiền trực</strong>
+<a class="button" href="{% url 'attendance_export' 'pdf' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}&amp;view=pay">PDF A4</a>
+<a class="button" href="{% url 'attendance_export' 'xlsx' %}?month={{ month|date:'Y-m' }}&amp;end={{ end|date:'Y-m' }}&amp;view=pay">Excel</a>
+</div>{% endif %}
 <div class="metrics"><div class="metric"><span>Nhân sự có ca</span><strong>{{ totals.0 }}</strong></div><div class="metric"><span>Ca đã hoàn thành</span><strong>{{ totals.1 }}</strong></div><div class="metric"><span>Ca chưa xác nhận</span><strong>{{ totals.2 }}</strong></div><div class="metric"><span>Tổng công quy đổi</span><strong>{{ totals.3 }}</strong></div></div>
 <section class="card"><div class="card-head"><h2>Tổng hợp theo nhân sự</h2><span class="badge {% if locked %}approved{% endif %}">{% if locked %}Đã duyệt và khóa{% else %}Chưa khóa{% endif %}</span></div>
 <div class="table-wrap"><table><thead><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>
@@ -27,7 +38,7 @@
 {% for slot in details %}<tr><td>{{ slot.day.date|date:"d/m/Y" }}</td><td><a href="{% url 'roster' slot.day.roster_id %}">{{ slot.day.roster.duty_type.name }}</a></td><td>{{ slot.assigned.name }}</td>
 <td>{% if slot.attendance %}<span class="badge">{{ slot.attendance.get_result_display }}</span><small class="block">{{ slot.attendance.note }}</small>{% else %}<span class="badge pending">Chưa xác nhận</span>{% endif %}</td>
 <td>{% if slot.attendance %}{{ slot.attendance.units }}{% else %}—{% endif %}</td>
-{% if rights.plan and not locked %}<td><details><summary>Xác nhận ca</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="hidden" name="slot" value="{{ slot.pk }}"><label>Kết quả<select name="result" required>{% for key, label in results %}<option value="{{ key }}" {% if slot.attendance.result == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label>Ghi chú<input name="note" maxlength="500" value="{{ slot.attendance.note }}"></label><button class="primary" name="action" value="confirm">Lưu kết quả</button></form></details></td>{% endif %}
+{% if rights.plan and not locked %}<td><details><summary>Xác nhận ca</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="hidden" name="slot" value="{{ slot.pk }}"><label>Kết quả<select name="result" required>{% for key, label in results %}<option value="{{ key }}" {% if slot.attendance.result == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label>Công thực tế (chỉ nhập khi hoàn thành một phần)<input name="units" type="number" min="0.01" max="9999.99" step="0.01" value="{% if slot.attendance.result == 'partial' %}{{ slot.attendance.units|stringformat:'s' }}{% endif %}"></label><label>Ghi chú<input name="note" maxlength="500" value="{{ slot.attendance.note }}"></label><button class="primary" name="action" value="confirm">Lưu kết quả</button></form></details></td>{% endif %}
 </tr>{% empty %}<tr><td colspan="6" class="empty">Chưa có ca trực để xác nhận.</td></tr>{% endfor %}
 </tbody></table></div></section>{% endif %}
 {% endblock %}

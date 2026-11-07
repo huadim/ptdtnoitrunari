@@ -1,11 +1,13 @@
 {% extends "school/base.html" %}
+{% load static %}
 {% block title %}{{ roster.duty_type.name }}{% endblock %}
 {% block content %}
-<header class="page-head"><a class="back" href="{% url 'rosters' %}?month={{ roster.month|date:'Y-m' }}">← Phân công lịch trực</a><h1>{{ roster.duty_type.name }} · {{ roster.month|date:"m/Y" }}</h1><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></header>
-{% if roster.state == 'published' %}<div class="card duty-flow"><div><strong>Đã chuyển sang chấm công</strong><p>Ca trực của lịch này xuất hiện trong bảng chấm công tháng {{ roster.month|date:"m/Y" }}.</p></div><a class="button primary" href="{% url 'attendance' %}?month={{ roster.month|date:'Y-m' }}#xac-nhan-ca">Mở chấm công tháng này →</a></div>{% endif %}
+{% if can_edit %}<script src="{% static 'school/roster-validation.js' %}" defer></script>{% endif %}
+<header class="page-head"><a class="back" href="{% url 'rosters' %}?month={{ roster.month|date:'Y-m' }}">← Phân công lịch trực</a><h1>{{ roster.duty_type.name }} · {{ roster.label }}</h1><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></header>
+{% if roster.state == 'published' %}<div class="card duty-flow"><div><strong>Đã chuyển sang chấm công</strong><p>Mỗi ca xuất hiện trong bảng chấm công theo ngày trực.</p></div><div class="actions">{% for month in months %}<a class="button primary" href="{% url 'attendance' %}?month={{ month|date:'Y-m' }}#xac-nhan-ca">Chấm công {{ month|date:"m/Y" }} →</a>{% endfor %}</div></div>{% endif %}
 {% if rights.all_duty %}<section class="card">
 <div class="card-head"><h2>Quy tắc và phê duyệt</h2></div>
-<p>{{ roster.people }} người/ngày · Cách ít nhất {{ roster.min_gap }} ngày · Ưu tiên {{ roster.preferred_min }}–{{ roster.preferred_max }} ngày · Cặp cuối tuần nghỉ {{ roster.pair_rest }} ngày trực cuối tuần.</p>
+<p>{{ roster.people }} người/ngày · Cách ít nhất {{ roster.min_gap }} ngày · Ưu tiên {{ roster.preferred_min }}–{{ roster.preferred_max }} ngày{% if roster.pair_rest %} · Cặp cuối tuần nghỉ {{ roster.pair_rest }} ngày trực cuối tuần{% endif %}{% if roster.weekend_rest %} · Mỗi người nghỉ {{ roster.weekend_rest }} cuối tuần sau ca thứ Bảy hoặc Chủ nhật{% endif %}.</p>
 {% if can_edit %}<div class="actions">
 <form method="post">{% csrf_token %}<button class="primary" name="action" value="generate">Tự động xếp lịch</button></form>
 <form method="post">{% csrf_token %}<button name="action" value="refresh_rules">Nạp quy tắc hiện hành</button></form>
@@ -18,17 +20,20 @@
 <a class="button" href="{% url 'roster_export' roster.pk 'docx' %}">Word</a><a class="button" href="{% url 'roster_export' roster.pk 'xlsx' %}">Excel</a></div></div>
 <div class="table-wrap"><table><thead><tr><th>Ngày trực</th><th>Người trực</th>{% if can_edit %}<th>Điều chỉnh</th>{% endif %}</tr></thead><tbody>
 {% for day in days %}<tr><td>{{ day.date|date:"d/m/Y" }}<small class="block">{{ day.date|date:"l" }}</small>{% if day.locked %}<span class="badge">Đã khóa ngày</span>{% endif %}</td>
-<td>{% for slot in day.visible_slots %}<div>{{ slot.assigned.name }}{% if rights.all_duty and slot.assigned_id != slot.original_id %}<small class="block">Trực thay {{ slot.original.name }}</small>{% endif %}</div>{% empty %}<span class="hint">Chưa phân công</span>{% endfor %}</td>
+<td>{% if day.not_required %}<span class="hint">Không có nhiệm vụ</span>{% else %}{% for slot in day.visible_slots %}<div>{{ slot.assigned.name }}{% if rights.all_duty and slot.assigned_id != slot.original_id %}<small class="block">Trực thay {{ slot.original.name }}</small>{% endif %}</div>{% empty %}<span class="hint">Chưa phân công</span>{% endfor %}{% endif %}</td>
 {% if can_edit %}<td><div class="actions">
-{% if not day.locked %}<details><summary>Sửa phân công</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="day" value="{{ day.pk }}">
-<fieldset class="scroll-list"><legend>Chọn người trực</legend>{% for employee in options %}<label class="check"><input type="checkbox" name="employees" value="{{ employee.pk }}" {% for slot in day.visible_slots %}{% if slot.assigned_id == employee.pk %}checked{% endif %}{% endfor %}>{{ employee.name }} ({{ employee.code }})</label>{% empty %}<p>Chưa có nhân sự hoạt động.</p>{% endfor %}</fieldset>
+{% if not day.locked and not day.not_required %}<details><summary>Sửa phân công</summary><form method="post" class="stack" data-duty-max="{{ roster.people }}">{% csrf_token %}<input type="hidden" name="day" value="{{ day.pk }}">
+<fieldset class="scroll-list" aria-describedby="duty-feedback-{{ day.pk }}"><legend>Chọn người trực (tối đa {{ roster.people }})</legend>
+{% for employee, warning, selected in day.options %}<label class="check"><input type="checkbox" name="employees" value="{{ employee.pk }}" data-warning="{{ warning }}" {% if selected %}checked{% endif %}>{{ employee.name }} ({{ employee.code }}){% if warning %} <small>· Có xung đột</small>{% endif %}</label>{% empty %}<p>Chưa có nhân sự đủ điều kiện.</p>{% endfor %}</fieldset>
+<p class="hint" role="status" id="duty-feedback-{{ day.pk }}" data-duty-feedback>Kiểm tra người trực trước khi lưu.</p>
 <button class="primary" name="action" value="assign">Lưu ngày trực</button></form></details>{% endif %}
 <form method="post">{% csrf_token %}<input type="hidden" name="day" value="{{ day.pk }}"><button name="action" value="toggle_day">{% if day.locked %}Mở ngày{% else %}Khóa ngày{% endif %}</button></form>
+{% if not day.locked and not day.visible_slots %}<form method="post">{% csrf_token %}<input type="hidden" name="day" value="{{ day.pk }}"><button name="action" value="toggle_required">{% if day.not_required %}Đặt lại ngày cần trực{% else %}Không cần trực ngày này{% endif %}</button></form>{% endif %}
 </div></td>{% endif %}</tr>
 {% empty %}<tr><td colspan="3" class="empty">Chưa có ca trực trong phạm vi của bạn.</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% if stats %}<details class="card"><summary>Thống kê phân bố nhân sự</summary>
-{% if close %}<details class="warning"><summary>{{ close|length }} khoảng cách ngắn hơn mức ưu tiên</summary><ul>{% for item in close %}<li>{{ item }}</li>{% endfor %}</ul></details>{% endif %}
+{% if close %}<details class="warning"><summary>{{ close|length }} ca ngoài khoảng cách ưu tiên</summary><ul>{% for item in close %}<li>{{ item }}</li>{% endfor %}</ul></details>{% endif %}
 <div class="table-wrap"><table><thead><tr><th>Nhân sự</th><th>Tổng lượt</th><th>Thứ Bảy</th><th>Chủ nhật</th></tr></thead><tbody>
 {% for name, total, saturday, sunday in stats %}<tr><td>{{ name }}</td><td>{{ total }}</td><td>{{ saturday }}</td><td>{{ sunday }}</td></tr>{% endfor %}
 </tbody></table></div></details>{% endif %}

@@ -13,7 +13,8 @@ from django.utils.timezone import localdate, now
 
 from .access import school_view
 from .common import page
-from .models import Employee, LoginBucket, Notification, Roster, Slot, State
+from .models import Employee, LoginBucket, Notification, Slot, State
+from .rosters import rosters_in_month
 
 
 class SchoolAuthentication(AuthenticationForm):
@@ -84,7 +85,7 @@ def home(request):
                               assigned=request.member.employee, day__date__gte=today)
     summary = None
     if request.rights["all_duty"]:
-        rosters = Roster.objects.filter(duty_type__school=request.school, month=month)
+        rosters = rosters_in_month(request.school, month)
         summary = (Employee.objects.filter(school=request.school, active=True).count(), rosters.count(),
                    rosters.filter(state=State.PUBLISHED).count())
     notes = Notification.objects.filter(employee=request.member.employee, seen=False)

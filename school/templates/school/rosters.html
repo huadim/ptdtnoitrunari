@@ -11,11 +11,17 @@
 <label>Tháng<input name="month" type="month" value="{{ month|date:'Y-m' }}" required></label>
 <label>Loại trực<select name="duty_type" required>{% for kind in types %}<option value="{{ kind.pk }}">{{ kind.name }}</option>{% empty %}<option value="">Chưa có loại trực</option>{% endfor %}</select></label>
 <button class="primary">Mở lịch tháng</button>
+</form></details>
+<details class="card"><summary>Tạo lịch theo lượt</summary>
+<form method="post" class="form-row">{% csrf_token %}
+<label>Loại trực<select name="duty_type" required>{% for kind in types %}<option value="{{ kind.pk }}">{{ kind.name }}</option>{% empty %}<option value="">Chưa có loại trực</option>{% endfor %}</select></label>
+{% for field in round_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
+<button class="primary" name="action" value="round">Tạo lượt trực</button>
 </form></details>{% endif %}
 <section class="card">
 <div class="card-head"><h2>Lịch tháng {{ month|date:"m/Y" }}</h2>
 <form method="get" class="form-row"><label>Chọn tháng<input type="month" name="month" value="{{ month|date:'Y-m' }}" required></label><button>Lọc</button></form></div>
-<div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead><tbody>
-{% for roster in rosters %}<tr><td><strong>{{ roster.duty_type.name }}</strong></td><td><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></td><td><a href="{% url 'roster' roster.pk %}">Mở lịch</a></td></tr>{% empty %}<tr><td colspan="3" class="empty">Chưa có lịch trực trong phạm vi của bạn cho tháng này.</td></tr>{% endfor %}
+<div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Kỳ phân công</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead><tbody>
+{% for roster in rosters %}<tr><td><strong>{{ roster.duty_type.name }}</strong></td><td>{{ roster.label }}</td><td><span class="badge {{ roster.state }}">{{ roster.get_state_display }}</span></td><td><a href="{% url 'roster' roster.pk %}">Mở lịch</a></td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa có lịch trực trong phạm vi của bạn cho tháng này.</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% endblock %}

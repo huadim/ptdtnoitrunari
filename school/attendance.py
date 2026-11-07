@@ -1,5 +1,5 @@
 from collections import defaultdict
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -11,13 +11,15 @@ from .access import employee_scope, record, require, school_view
 from .common import bad_month, chosen_month, fail, month_locked, month_redirect, page, post_form
 from .exports import document
 from .forms import ConfirmForm, MonthField, ReasonForm
-from .models import Attendance, DayKind, Decision, Holiday, MonthClose, Rate, Request, Result, Roster, Slot, State
+from .models import Attendance, DayKind, Decision, Holiday, MonthClose, PayRate, Rate, Request, Result, Slot, State
+from .rosters import rosters_in_month
+from .scheduling import month_dates
 
-COMPLETED = {Result.DONE, Result.SUBSTITUTE}
+COMPLETED = {Result.DONE, Result.SUBSTITUTE, Result.PARTIAL}
 
 
 def published(request, month, end=None):
-    return Slot.objects.filter(day__roster__duty_type__school=request.school, day__roster__month__range=(month, end or month),
+    return Slot.objects.filter(day__roster__duty_type__school=request.school, day__date__range=(month, month_dates(end or month)[-1]),
                                day__roster__state=State.PUBLISHED).select_related(
         "day__roster__duty_type", "assigned", "original", "attendance__actual").order_by("day__date", "assigned__name")
 
@@ -65,10 +67,22 @@ def confirm(request, month):
         if not rate:
             fail(f"Chưa có hệ số {DayKind(kind).label} hiệu lực ngày {date:%d/%m/%Y} cho loại trực này.")
     units = rate.units if rate else Decimal("0")
+    if result == Result.PARTIAL:
+        if data["units"] >= units:
+            fail("Công thực tế phải nhỏ hơn công của ca đủ.")
+        units = data["units"]
+    price, reference = None, ""
+    if result in COMPLETED:
+        if previous and previous.unit_price is not None:
+            price, reference = previous.unit_price, previous.price_reference
+        else:
+            pay_rate = PayRate.objects.filter(duty_type=slot.day.roster.duty_type, effective__lte=date).first()
+            if pay_rate:
+                price, reference = pay_rate.unit_price, pay_rate.reference
     before = f"{previous.result}, {previous.units}" if previous else Result.PENDING
     Attendance.objects.update_or_create(slot=slot, defaults={
         "actual": slot.assigned, "result": result, "kind": kind, "rate": rate, "units": units,
-        "note": data["note"], "confirmed_by": request.member,
+        "note": data["note"], "confirmed_by": request.member, "unit_price": price, "price_reference": reference,
     })
     record(request, "attendance.confirm", f"Ca #{slot.pk}: {before} → {result}, {units}. {data['note']}")
     messages.success(request, "Đã xác nhận ca trực.")
@@ -79,7 +93,7 @@ def month_action(request, month, action):
     if action == "lock":
         slots = published(request, month)
         if (not slots.exists() or slots.filter(attendance__isnull=True).exists()
-                or Roster.objects.filter(duty_type__school=request.school, month=month).exclude(state=State.PUBLISHED).exists()):
+                or rosters_in_month(request.school, month).exclude(state=State.PUBLISHED).exists()):
             fail("Cần công bố mọi lịch trực đã tạo trong tháng và xác nhận tất cả ca trước khi khóa.")
         if Request.objects.filter(slot__in=slots, status=Decision.PENDING).exists():
             fail("Cần xử lý các đề nghị trực thay đang chờ trước khi khóa.")
@@ -125,7 +139,7 @@ def report(request, slots):
         elif actual.result in COMPLETED:
             row[1] += 1
             row[2 + categories.index(actual.kind)] += 1
-            row[6] += actual.result == Result.SUBSTITUTE
+            row[6] += slot.original_id != actual.actual_id
             row[9] += actual.units
         else:
             row[7] += 1
@@ -214,5 +228,77 @@ def attendance_export(request, format):
     state = "ĐÃ KHÓA" if range_closed(request.school, month, end) else "CÓ THÁNG CHƯA KHÓA"
     period = f"{month:%m/%Y}" if end == month else f"{month:%m/%Y} – {end:%m/%Y}"
     scope = "TOÀN TRƯỜNG" if request.rights["all_attendance"] else "THEO PHẠM VI TÀI KHOẢN"
+    if request.GET.get("view") == "daily":
+        if end != month:
+            return HttpResponseBadRequest("Bảng công theo ngày chỉ xuất cho một tháng.")
+        days = month_dates(month)
+        slots = employee_scope(request, published(request, month), "assigned", "all_attendance")
+        headers = ("STT", "Họ và tên", *(str(day.day) for day in days), "Số công")
+        return document(
+            request, "BẢNG CHẤM CÔNG QUẢN LÝ HỌC SINH NGOÀI GIỜ LÊN LỚP",
+            f"Mẫu C01-HD · Tháng {month:%m/%Y} · {scope} · {state}",
+            headers, daily_rows(slots, days), f"cham-cong-theo-ngay-{month:%Y-%m}", format, landscape=True,
+            daily=True,
+        )
+    if request.GET.get("view") == "pay":
+        require(request, "attendance_money")
+        rows = payment_rows(published(request, month, end))
+        return document(
+            request, "BẢNG TÍNH TIỀN TRỰC", f"Tháng {period} · {state}",
+            ("Họ và tên", "Loại trực", "Số công", "Đơn giá (đ/công)", "Thành tiền (đ)", "Căn cứ"),
+            rows, f"tien-truc-{month:%Y-%m}", format, landscape=True,
+        )
     return document(request, f"BÁO CÁO CHẤM CÔNG {scope}", f"Tháng {period} · {state}", HEADERS,
                     report(request, visible(request, month, end)), f"cham-cong-{month:%Y-%m}", format, landscape=True)
+
+
+def daily_rows(slots, days):
+    people = {}
+    entries = defaultdict(dict)
+    pending = defaultdict(set)
+    totals_by_day = defaultdict(lambda: Decimal("0"))
+    for slot in slots:
+        person = slot.assigned
+        people[person.pk] = person
+        date = slot.day.date
+        attendance = getattr(slot, "attendance", None)
+        if attendance is None or attendance.result == Result.PENDING:
+            pending[person.pk].add(date)
+            continue
+        person_days = entries[person.pk]
+        person_days[date] = person_days.get(date, Decimal("0")) + attendance.units
+        totals_by_day[date] += attendance.units
+
+    rows = []
+    for index, person in enumerate(sorted(people.values(), key=lambda person: (person.name, person.code)), 1):
+        person_days = entries[person.pk]
+        values = [person_days.get(day, "CXN" if day in pending[person.pk] else "") for day in days]
+        total = sum(person_days.values(), Decimal("0")) if person_days else ""
+        rows.append((index, person.name, *values, total))
+    rows.append(("", "Cộng", *(totals_by_day.get(day, "") for day in days), sum(totals_by_day.values())))
+    return rows
+
+
+def payment_rows(slots):
+    quantities = defaultdict(lambda: Decimal("0"))
+    for slot in slots:
+        actual = getattr(slot, "attendance", None)
+        if actual and actual.result in COMPLETED:
+            key = (actual.actual.name, actual.actual.code, slot.day.roster.duty_type.name,
+                   actual.unit_price, actual.price_reference)
+            quantities[key] += actual.units
+
+    rows = []
+    total = Decimal("0")
+    missing = False
+    for (name, code, kind, price, reference), units in sorted(
+            quantities.items(), key=lambda item: (*item[0][:3], item[0][3] is None, item[0][3] or 0, item[0][4])):
+        if price is None:
+            rows.append((f"{name} ({code})", kind, units, "", "", "Chưa xác nhận đơn giá"))
+            missing = True
+        else:
+            amount = (units * price).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            total += amount
+            rows.append((f"{name} ({code})", kind, units, price, amount, reference))
+    rows.append(("Cộng tiền đã có đơn giá" if missing else "Cộng", "", "", "", total, ""))
+    return rows

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import User
@@ -66,12 +68,29 @@ class DutyTypeForm(forms.Form):
     preferred_min = forms.IntegerField(label="Khoảng cách ưu tiên từ", min_value=1, max_value=30, initial=7)
     preferred_max = forms.IntegerField(label="Khoảng cách ưu tiên đến", min_value=1, max_value=30, initial=8)
     pair_rest = forms.IntegerField(label="Số ngày trực cuối tuần cặp phải nghỉ", min_value=0, max_value=20, initial=0)
+    weekend_rest = forms.IntegerField(label="Số cuối tuần nghỉ theo từng người", min_value=0, max_value=12,
+                                      initial=0, required=False)
 
     def clean(self):
         data = super().clean()
+        data["weekend_rest"] = data.get("weekend_rest") or 0
         if {"preferred_min", "preferred_max", "min_gap"} <= data.keys():
             if not data["min_gap"] <= data["preferred_min"] <= data["preferred_max"]:
                 raise ValidationError("Kiểm tra lại thứ tự các mốc khoảng cách.")
+        return data
+
+
+class DutyRoundForm(forms.Form):
+    round_number = forms.IntegerField(label="Lượt", min_value=1, max_value=999)
+    start = date_field("Từ ngày")
+    end = date_field("Đến ngày")
+
+    def clean(self):
+        data = super().clean()
+        if "start" in data and "end" in data:
+            start, end = data["start"], data["end"]
+            if not (2000 <= start.year <= end.year <= 2099 and 0 <= (end - start).days < 31):
+                raise ValidationError("Chọn khoảng từ 1 đến 31 ngày, trong các năm từ 2000 đến 2099.")
         return data
 
 
@@ -79,6 +98,21 @@ class RateForm(forms.Form):
     effective = date_field("Hiệu lực từ", initial=timezone.localdate)
     kind = forms.ChoiceField(label="Nhóm ngày", choices=DayKind)
     units = forms.DecimalField(label="Công quy đổi / người", max_digits=6, decimal_places=2, min_value=0)
+
+
+class PayRateForm(forms.Form):
+    effective = date_field("Hiệu lực từ", initial=timezone.localdate)
+    unit_price = forms.DecimalField(label="Đơn giá (đồng/công)", max_digits=12, decimal_places=0, min_value=0)
+    reference = forms.CharField(label="Căn cứ đơn giá", max_length=160)
+
+
+class EligibleStaffForm(forms.Form):
+    employees = forms.ModelMultipleChoiceField(label="Nhân sự được phân công", queryset=Employee.objects.none(),
+                                               required=False)
+
+    def __init__(self, *args, staff, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["employees"].queryset = staff
 
 
 class HolidayForm(forms.Form):
@@ -107,6 +141,17 @@ class ConfirmForm(forms.Form):
     result = forms.ChoiceField(label="Kết quả", choices=[("", "Chọn kết quả")] + [item for item in Result.choices if item[0] not in
                                                                                     (Result.PENDING, Result.SUBSTITUTE)])
     note = forms.CharField(label="Ghi chú", max_length=500, required=False)
+    units = forms.DecimalField(label="Công thực tế cho ca một phần", max_digits=6, decimal_places=2,
+                               min_value=Decimal("0.01"), required=False)
+
+    def clean(self):
+        data = super().clean()
+        if data.get("result") == Result.PARTIAL:
+            if data.get("units") is None and not self.has_error("units"):
+                self.add_error("units", "Nhập số công thực tế cho ca một phần.")
+            if not data.get("note"):
+                self.add_error("note", "Ghi lý do xác nhận ca một phần.")
+        return data
 
 
 class WeekForm(forms.Form):

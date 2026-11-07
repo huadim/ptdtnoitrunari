@@ -56,6 +56,8 @@ class DutyType(models.Model):
     preferred_min = models.PositiveSmallIntegerField(default=7)
     preferred_max = models.PositiveSmallIntegerField(default=8)
     pair_rest = models.PositiveSmallIntegerField(default=0)
+    weekend_rest = models.PositiveSmallIntegerField(default=0)
+    eligible_staff = models.ManyToManyField(Employee, blank=True)
 
     class Meta:
         constraints = [
@@ -77,6 +79,7 @@ class State(models.TextChoices):
 class Roster(models.Model):
     duty_type = models.ForeignKey(DutyType, on_delete=models.PROTECT)
     month = models.DateField()
+    round_number = models.PositiveSmallIntegerField(null=True, blank=True)
     state = models.CharField(max_length=12, choices=State, default=State.DRAFT)
     # Keep the approved rules attached to a particular roster.
     people = models.PositiveSmallIntegerField()
@@ -84,15 +87,26 @@ class Roster(models.Model):
     preferred_min = models.PositiveSmallIntegerField()
     preferred_max = models.PositiveSmallIntegerField()
     pair_rest = models.PositiveSmallIntegerField()
+    weekend_rest = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["duty_type", "month"], name="roster_type_month")]
+        constraints = [
+            models.UniqueConstraint(fields=["duty_type", "month"], condition=Q(round_number__isnull=True),
+                                    name="roster_type_month_only"),
+        ]
+
+    @property
+    def label(self):
+        if self.round_number is not None:
+            return f"Lượt {self.round_number:02d}"
+        return f"Tháng {self.month:%m/%Y}"
 
 
 class DutyDay(models.Model):
     roster = models.ForeignKey(Roster, on_delete=models.PROTECT)
     date = models.DateField()
     locked = models.BooleanField(default=False)
+    not_required = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["date"]
@@ -161,9 +175,24 @@ class Rate(models.Model):
         ]
 
 
+class PayRate(models.Model):
+    duty_type = models.ForeignKey(DutyType, on_delete=models.PROTECT)
+    effective = models.DateField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=0)
+    reference = models.CharField(max_length=160)
+
+    class Meta:
+        ordering = ["-effective"]
+        constraints = [
+            models.UniqueConstraint(fields=["duty_type", "effective"], name="pay_rate_type_effective"),
+            models.CheckConstraint(condition=Q(unit_price__gte=0), name="pay_rate_nonnegative"),
+        ]
+
+
 class Result(models.TextChoices):
     PENDING = "pending", "Chưa xác nhận"
     DONE = "done", "Hoàn thành"
+    PARTIAL = "partial", "Hoàn thành một phần"
     EXCUSED = "excused", "Nghỉ có phép"
     ABSENT = "absent", "Nghỉ không phép"
     SUBSTITUTE = "substitute", "Trực thay"
@@ -177,6 +206,8 @@ class Attendance(models.Model):
     kind = models.CharField(max_length=10, choices=DayKind)
     rate = models.ForeignKey(Rate, null=True, on_delete=models.PROTECT)
     units = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
+    price_reference = models.CharField(max_length=160, blank=True)
     note = models.CharField(max_length=500, blank=True)
     confirmed_by = models.ForeignKey(Membership, on_delete=models.PROTECT)
     confirmed_at = models.DateTimeField(auto_now=True)
