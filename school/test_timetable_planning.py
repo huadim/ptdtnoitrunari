@@ -10,9 +10,10 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from openpyxl import Workbook
 
-from .models import Employee, Holiday, Lesson, Membership, Role, School, State, TeachingRequirement, TimetablePlan, TimetableWeek
+from .models import (Employee, Holiday, Lesson, Membership, Role, School, State, TeachingRequirement,
+                     TeachingTeacherLimit, TimetablePlan, TimetableWeek)
 from .timetable_planning import EXCEL_HEADERS
-from .timetable_solver import Entry, Problem, Requirement, solve, validate
+from .timetable_solver import Entry, Problem, Requirement, TeacherLimit, solve, validate
 
 
 class SolverTests(SimpleTestCase):
@@ -61,6 +62,19 @@ class SolverTests(SimpleTestCase):
                                     Entry(1, "7B", "Văn", "P01", 0, 1)), complete=True)
         self.assertIn("trùng giáo viên", " ".join(errors))
         self.assertIn("trùng phòng", " ".join(errors))
+
+    def test_fixed_breaks_and_teacher_limits_apply_to_existing_and_new_entries(self):
+        item = Requirement(1, "Giáo viên A", "6A", "Toán", "P1", 2)
+        fixed = Entry(1, "6A", "Toán", "P1", 0, 1, pinned=True)
+        problem = self.problem((item,), fixed=(fixed,), morning=3, afternoon=1,
+                               teacher_limits=(TeacherLimit(1, "Giáo viên A", 1, 2, 1),),
+                               resource_breaks=frozenset({("room", "p1", 0, 2)}))
+        result = solve(problem)
+        self.assertEqual(result.entries, (Entry(1, "6A", "Toán", "P1", 0, 4),))
+        self.assertEqual(validate(problem, (*problem.fixed, *result.entries), complete=True), [])
+        invalid = (*problem.fixed, Entry(1, "6A", "Toán", "P1", 0, 2))
+        self.assertIn("H12", " ".join(validate(problem, invalid)))
+        self.assertIn("H13", " ".join(validate(problem, invalid)))
 
 
 class TeachingPlanTests(TestCase):
@@ -169,6 +183,43 @@ class TeachingPlanTests(TestCase):
         self.assertEqual(self.client.get(report_url).context["rows"], [("09/11/2026", "Sáng", 1)])
         self.assertEqual(self.client.get(reverse("timetable_report", args=[self.week.pk, "assignments"])).status_code, 403)
 
+    def test_optimization_requires_confirmation_and_keeps_pinned_lesson(self):
+        self.setup_plan()
+        plan = self.week.plan
+        plan.morning = 4
+        plan.save(update_fields=["morning"])
+        TeachingRequirement.objects.create(plan=plan, teacher=self.teacher, classroom="6A",
+                                           subject="Toán", room="P1", periods=2, session="am")
+        fields = {"week": self.week, "teacher": self.teacher, "date": self.monday,
+                  "classroom": "6A", "subject": "Toán", "room": "P1"}
+        first = Lesson.objects.create(period=1, **fields)
+        last = Lesson.objects.create(period=4, **fields)
+        self.assertRedirects(self.client.post(self.week_url, {"action": "pin", "id": first.pk}), self.week_url)
+        self.assertContains(self.client.get(self.week_url, {"edit": first.pk}), "Bỏ cố định")
+        self.client.post(self.week_url, {"action": "remove", "id": first.pk})
+        self.assertTrue(Lesson.objects.filter(pk=first.pk, pinned=True).exists())
+
+        self.assertRedirects(self.client.post(self.plan_url, {
+            "action": "teacher_limit", "teacher-limit-teacher": self.teacher.pk,
+            "teacher-limit-days": 1, "teacher-limit-daily": 2,
+        }), self.plan_url)
+        self.assertEqual(TeachingTeacherLimit.objects.get().daily, 2)
+        self.assertRedirects(self.client.post(self.plan_url, {
+            "action": "resource_break", "break-target": "class:6A", "break-date": self.monday.isoformat(),
+            "break-first": 4, "break-last": 4,
+        }), self.plan_url)
+        self.assertContains(self.client.get(self.plan_url), "Lớp học 6A")
+        preview = self.client.post(self.plan_url, {"action": "optimize"})
+        self.assertContains(preview, "Xác nhận áp dụng phương án tối ưu")
+        self.assertEqual((preview.context["old_gaps"], preview.context["new_gaps"]), (2, 0))
+        self.assertEqual(set(self.week.lesson_set.values_list("pk", flat=True)), {first.pk, last.pk})
+        token = preview.context["solve_token"]
+        self.assertContains(self.client.post(self.plan_url, {"action": "apply_solve", "token": token}),
+                            "Bản xem trước không thuộc tài khoản hoặc tuần này.")
+        self.assertRedirects(self.client.post(self.plan_url, {"action": "apply_optimize", "token": token}), self.week_url)
+        self.assertEqual(list(self.week.lesson_set.values_list("period", "pinned")), [(1, True), (2, False)])
+        self.assertTrue(Lesson.objects.filter(pk=first.pk, pinned=True).exists())
+
     def test_rejects_wrong_school_codes_duplicate_rows_and_stale_proposals(self):
         self.setup_plan()
         bad = self.client.post(self.plan_url, {"action": "preview_import", "workbook": self.workbook(
@@ -240,3 +291,5 @@ class TeachingPlanTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             TeachingRequirement.objects.create(plan=plan, teacher=self.other_teacher, classroom="7A",
                                                subject="TOÁN", room="P1", periods=2)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            TeachingTeacherLimit.objects.create(plan=plan, teacher=self.other_teacher, days=4)

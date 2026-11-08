@@ -85,6 +85,9 @@
 .main-pane .timetable-grid td:has(.lesson-entry) { padding: 2px; }
 .main-pane .timetable-grid .lesson-tile { padding: 3px 4px; border-radius: 2px; }
 .main-pane .timetable-grid .lesson-tile small, .main-pane .timetable-grid .related-link { font-size: .68rem; }
+.lesson-entry.pinned .lesson-tile { border-left: 3px solid #2363a3; }
+.lesson-pin { display: flex; align-items: center; gap: 3px; color: #174c82; }
+.lesson-pin svg { width: 11px; height: 11px; }
 .main-pane .add-cell { min-height: 35px; border: 0; border-radius: 0; }
 .main-pane .add-cell.with-lessons { min-height: 19px; }
 .main-pane .add-cell:not(:hover, :focus-visible) span { opacity: .3; }

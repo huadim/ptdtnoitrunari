@@ -23,14 +23,19 @@
     <input type="hidden" name="revision" value="{{ week.revision }}">
     {% if edit_id %}<input type="hidden" name="id" value="{{ edit_id }}">{% endif %}
     {{ form.non_field_errors }}
-    <div class="lesson-fields">
+    {% if editor_pinned %}
+    <p>Tiết này đã được cố định. Bỏ cố định để chỉnh sửa hoặc xóa.</p>
+    {% else %}<div class="lesson-fields">
       {% for field in form %}
         <div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
       {% endfor %}
-    </div>
+    </div>{% endif %}
     <div class="actions">
-      {% if edit_id %}
+      {% if editor_pinned %}
+        <button name="action" value="unpin" formnovalidate>Bỏ cố định</button>
+      {% elif edit_id %}
         <button class="primary" name="action" value="edit">Lưu thay đổi</button>
+        <button name="action" value="pin" formnovalidate>Cố định tiết hiện tại</button>
         <button class="danger-button" name="action" value="remove" formnovalidate>Xóa tiết</button>
       {% else %}
         <button class="primary" name="action" value="add">Lưu tiết học</button>
@@ -82,7 +87,7 @@
   <div class="table-wrap" tabindex="0" role="region" aria-label="Danh sách tiết học">
     <table><thead><tr><th scope="col">Ngày</th><th scope="col">Tiết</th><th scope="col">Lớp</th><th scope="col">Môn học</th><th scope="col">Giáo viên</th><th scope="col">Phòng</th>{% if can_edit %}<th scope="col">Thao tác</th>{% endif %}</tr></thead>
       <tbody>{% for lesson in lessons %}
-      <tr><td>{{ lesson.date|date:"d/m/Y" }}</td><td>{{ lesson.period }}</td><td>{{ lesson.classroom }}</td><td>{{ lesson.subject }}</td><td>{{ lesson.teacher.name }}</td><td>{{ lesson.room }}</td>
+      <tr><td>{{ lesson.date|date:"d/m/Y" }}</td><td>{{ lesson.period }}</td><td>{{ lesson.classroom }}</td><td>{{ lesson.subject }}{% if lesson.pinned %} <span class="badge">Cố định</span>{% endif %}</td><td>{{ lesson.teacher.name }}</td><td>{{ lesson.room }}</td>
       {% if can_edit %}<td><a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor" aria-label="Sửa tiết {{ lesson.period }} môn {{ lesson.subject }} lớp {{ lesson.classroom }} ngày {{ lesson.date|date:'d/m' }}">Sửa tiết</a> · <a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}focus={{ lesson.pk }}#lien-quan">Xem liên quan</a></td>{% endif %}</tr>
       {% endfor %}</tbody>
     </table>
@@ -103,9 +108,10 @@
           {% for day, entries in columns %}
           <td{% if day.weekday == 6 %} data-sunday{% endif %}{% if day.weekday >= 5 %} class="weekend-cell"{% endif %}{% if can_edit %} data-target-day="{{ day|date:'Y-m-d' }}" data-target-period="{{ period }}"{% endif %}>
             {% for lesson in entries %}
-              <div class="lesson-entry{% if selected_lesson.pk == lesson.pk %} selected{% endif %}">
-              {% if can_edit %}<a class="lesson-tile" draggable="true" data-drag-lesson href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor">{% else %}<div class="lesson-tile">{% endif %}
+              <div class="lesson-entry{% if selected_lesson.pk == lesson.pk %} selected{% endif %}{% if lesson.pinned %} pinned{% endif %}">
+              {% if can_edit %}<a class="lesson-tile"{% if not lesson.pinned %} draggable="true" data-drag-lesson{% else %} draggable="false"{% endif %} href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}edit={{ lesson.pk }}#lesson-editor">{% else %}<div class="lesson-tile">{% endif %}
                 <strong>{{ lesson.subject }}</strong>
+                {% if lesson.pinned %}<small class="lesson-pin"><svg aria-hidden="true"><use href="#tb-pin"/></svg> Cố định</small>{% endif %}
                 <small>Lớp {{ lesson.classroom }} · {{ lesson.room }}</small>
                 <small>{{ lesson.teacher.name }}</small>
               {% if can_edit %}</a>{% else %}</div>{% endif %}

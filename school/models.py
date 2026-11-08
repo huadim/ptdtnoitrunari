@@ -255,6 +255,7 @@ class Lesson(models.Model):
     subject = models.CharField(max_length=80)
     teacher = models.ForeignKey(Employee, on_delete=models.PROTECT)
     room = models.CharField(max_length=40)
+    pinned = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["date", "period", "classroom"]
@@ -320,6 +321,49 @@ class TeachingUnavailable(models.Model):
             models.UniqueConstraint(fields=["plan", "teacher", "date", "first", "last"], name="teaching_unavailable_once"),
             models.CheckConstraint(condition=Q(first__gte=1, last__lte=15, last__gte=models.F("first")),
                                    name="teaching_unavailable_periods"),
+        ]
+
+
+class TeachingBreak(models.Model):
+    class Kind(models.TextChoices):
+        CLASSROOM = "class", "Lớp học"
+        SUBJECT = "subject", "Môn học"
+        ROOM = "room", "Phòng học"
+
+    plan = models.ForeignKey(TimetablePlan, on_delete=models.PROTECT, related_name="breaks")
+    kind = models.CharField(max_length=7, choices=Kind)
+    resource = models.CharField(max_length=80)
+    date = models.DateField()
+    first = models.PositiveSmallIntegerField()
+    last = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ("date", "first", "kind", "resource")
+        constraints = [
+            models.UniqueConstraint(fields=["plan", "kind", "resource", "date", "first", "last"], name="teaching_break_once"),
+            models.CheckConstraint(condition=Q(first__gte=1, last__gte=models.F("first"), last__lte=15),
+                                   name="teaching_break_periods"),
+        ]
+
+
+class TeachingTeacherLimit(models.Model):
+    plan = models.ForeignKey(TimetablePlan, on_delete=models.PROTECT, related_name="teacher_limits")
+    teacher = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    days = models.PositiveSmallIntegerField(null=True, blank=True)
+    daily = models.PositiveSmallIntegerField(null=True, blank=True)
+    session = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("teacher__name", "teacher_id")
+        constraints = [
+            models.UniqueConstraint(fields=["plan", "teacher"], name="teaching_teacher_limit_once"),
+            models.CheckConstraint(
+                condition=(Q(days__isnull=True) | Q(days__range=(1, 7)))
+                & (Q(daily__isnull=True) | Q(daily__range=(1, 15)))
+                & (Q(session__isnull=True) | Q(session__range=(1, 10)))
+                & ~Q(days__isnull=True, daily__isnull=True, session__isnull=True),
+                name="teaching_teacher_limit_ranges",
+            ),
         ]
 
 

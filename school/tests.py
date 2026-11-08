@@ -123,6 +123,21 @@ class SchoolTests(TestCase):
         self.assertEqual(Employee.objects.filter(school=self.school, code__startswith="NEW").count(), 2)
         self.assertEqual(self.client.get(reverse("staff_template")).status_code, 200)
 
+    def test_import_accepts_smartscheduler_teacher_headers_and_preserves_text_code(self):
+        self.sign(self.office)
+        book = Workbook()
+        book.active.append(["TT", "Họ đệm", "Tên", "Mã GV", "Mã GV 2", "Điện thoại di động",
+                            "Email", "Zalo UID", "Ghi chú"])
+        book.active.append([1, "Nguyễn Văn", "An", "001", "AN", None, None, None, "Giáo viên"])
+        book.active.append([2, "Trần Thị Mai", None, "Mai"])
+        buffer = BytesIO()
+        book.save(buffer)
+        self.assertContains(self.follow("staff", {"action": "import",
+                                                  "workbook": SimpleUploadedFile("123.xlsx", buffer.getvalue())}),
+                            "Đã lưu hồ sơ nhân sự.")
+        self.assertEqual(Employee.objects.get(school=self.school, code="001").name, "Nguyễn Văn An")
+        self.assertEqual(Employee.objects.get(school=self.school, code="MAI").name, "Trần Thị Mai")
+
     def test_generation_respects_leave_hard_gap_locked_day_and_approval(self):
         month = date(2026, 6, 1)
         self.kind.min_gap = 5

@@ -214,9 +214,10 @@ def week_detail(request, pk):
     weeks = visible_weeks(request)
     selected_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("focus")), None)
     show_sunday = bool(plan and "6" in plan.days) or any(lesson.date.weekday() == 6 for lesson in all_lessons)
+    editor_pinned = any(str(lesson.pk) == str(edit_id) and lesson.pinned for lesson in all_lessons)
     return page(request, "week", week=week, menu_week=week, on_board=True, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
                 last_day=days[-1],
-                lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open,
+                lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open, editor_pinned=editor_pinned,
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),
                 next_week=weeks.filter(monday__gt=week.monday).order_by("monday").first(),
                 choices=choices, list_view=list_view, export_query=urlencode(filters), grid_query=urlencode(grid_params),
@@ -254,13 +255,13 @@ def lesson_conflicts(request, week, data, item):
                           (day - week.monday).days, period)
         baseline = set(validate(problem, problem.fixed))
         after = (*[entry for entry in problem.fixed if entry != old_entry], new_entry)
-        errors.extend(issue for issue in validate(problem, after) if issue not in baseline)
+        errors.extend(issue for issue in validate(problem, after, previous=problem.fixed) if issue not in baseline)
     return errors
 
 
 def change_week(request, week, form):
     action = request.POST.get("action")
-    if action in {"add", "edit", "remove", "submit"}:
+    if action in {"add", "edit", "remove", "pin", "unpin", "submit"}:
         require(request, "plan")
         if week.state != State.DRAFT:
             fail("Chỉ chỉnh sửa tuần ở trạng thái nháp.")
@@ -272,8 +273,10 @@ def change_week(request, week, form):
     revision = request.POST.get("revision")
     if revision is not None and revision != str(week.revision):
         fail("Tuần đã được người khác cập nhật. Mở lại tuần trước khi lưu thay đổi.")
+    item = get_object_or_404(rows, pk=request.POST.get("id", "0")) if action in {"edit", "remove", "pin", "unpin"} else None
+    if item and item.pinned and action in {"edit", "remove"}:
+        fail("Bỏ cố định tiết này trước khi sửa hoặc xóa.")
     if action in {"add", "edit"}:
-        item = get_object_or_404(rows, pk=request.POST.get("id", "0")) if action == "edit" else None
         if not form.is_valid():
             return
         data = form.cleaned_data
@@ -284,8 +287,10 @@ def change_week(request, week, form):
         else:
             item = Lesson.objects.create(week=week, **data)
     elif action == "remove":
-        item = get_object_or_404(rows, pk=request.POST.get("id", "0"))
         item.delete()
+    elif action in {"pin", "unpin"}:
+        item.pinned = action == "pin"
+        item.save(update_fields=["pinned"])
     else:
         old, new = {
             "submit": ([State.DRAFT], State.SUBMITTED),
@@ -324,7 +329,7 @@ def change_week(request, week, form):
             ])
     week.revision += 1
     week.save(update_fields=["revision"])
-    suffix = f", tiết #{item.pk}" if action in {"add", "edit"} else ""
+    suffix = f", tiết #{item.pk}" if item and item.pk else ""
     record(request, f"timetable.{action}", f"Tuần #{week.pk}{suffix}")
     messages.success(request, "Đã lưu thời khóa biểu.")
 

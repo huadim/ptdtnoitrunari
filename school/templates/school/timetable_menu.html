@@ -56,7 +56,10 @@
   </div></details>
   <details><summary>Ràng buộc TKB</summary><div class="tkb-popup">
     {% if week and rights.plan %}
-    <a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Yêu cầu của giáo viên</a>
+    <details><summary>Yêu cầu của giáo viên</summary><div class="tkb-popup">
+      <a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Khai báo giờ giáo viên bận</a>
+      <a href="{% url 'timetable_plan' week.pk %}#gioi-han-giao-vien">Giới hạn ngày và tiết dạy</a>
+    </div></details>
     <a href="{% url 'timetable_plan' week.pk %}#phan-cong">Yêu cầu của môn học</a>
     {% else %}<span aria-disabled="true">Yêu cầu của giáo viên</span><span aria-disabled="true">Yêu cầu của môn học</span>{% endif %}
     <span aria-disabled="true">Yêu cầu của nhóm môn học</span>
@@ -65,7 +68,8 @@
     <a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Cố định giờ giáo viên bận</a>
     {% if week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#khung-hoc">Giới hạn số tiết theo buổi</a>{% endif %}
     {% else %}<span aria-disabled="true">Cố định giờ giáo viên bận</span>{% endif %}
-    <span aria-disabled="true">Cố định tiết nghỉ chung</span>
+    {% if week and rights.plan %}<a href="{% url 'timetable_plan' week.pk %}#tiet-nghi-co-dinh">Cố định tiết nghỉ lớp, môn và phòng</a>
+    {% else %}<span aria-disabled="true">Cố định tiết nghỉ lớp, môn và phòng</span>{% endif %}
     <hr>
     <span aria-disabled="true">Xóa toàn bộ ràng buộc TKB</span>
   </div></details>
@@ -75,7 +79,8 @@
     {% if week and rights.plan and week.state == 'draft' %}
     <a href="{% url 'week' week.pk %}?view=list#board-title">Xóa TKB · chọn tiết cần xóa</a>
     {% else %}<span aria-disabled="true">Xóa TKB</span>{% endif %}
-    <span aria-disabled="true">Cố định TKB</span>
+    {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'week' week.pk %}?view=list#board-title">Cố định TKB · chọn tiết</a>
+    {% else %}<span aria-disabled="true">Cố định TKB</span>{% endif %}
     <span aria-disabled="true">Tô màu TKB</span>
     <hr>
     {% if week and rights.plan and week.state == 'draft' %}
@@ -85,7 +90,8 @@
     <hr>
     {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#xep-lich">Soạn thảo TKB tự động</a>
     {% else %}<span aria-disabled="true">Soạn thảo TKB tự động</span>{% endif %}
-    <span aria-disabled="true">Tối ưu TKB tự động sau khi xếp</span>
+    {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#toi-uu-tkb">Tối ưu TKB tự động sau khi xếp</a>
+    {% else %}<span aria-disabled="true">Tối ưu TKB tự động sau khi xếp</span>{% endif %}
     <span aria-disabled="true">Tinh chỉnh TKB tự động</span>
     {% if week.state == 'draft' and rights.plan or week and week.state != 'draft' and week.state != 'published' and rights.duty_approve %}
     <hr><a href="{% url 'week' week.pk %}#duyet-tkb">Duyệt và công bố</a>

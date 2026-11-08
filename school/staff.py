@@ -12,6 +12,10 @@ from .common import fail, page, post_form
 from .forms import DutyTypeForm, EligibleStaffForm, EmployeeForm, HolidayForm, ImportForm, PayRateForm, RateForm
 from .models import Audit, DutyType, Employee, Holiday, PayRate, Rate
 
+EMPLOYEE_HEADERS = ("mã nhân sự", "họ và tên", "tổ chuyên môn")
+SMARTSCHEDULER_HEADERS = ("tt", "họ đệm", "tên", "mã gv", "mã gv 2",
+                          "điện thoại di động", "email", "zalo uid", "ghi chú")
+
 
 def employee_rows(upload):
     from openpyxl import load_workbook
@@ -30,21 +34,26 @@ def employee_rows(upload):
         try:
             sheet = book.active
             sheet.reset_dimensions()
-            data = islice(sheet.iter_rows(min_row=1, min_col=1, max_col=3), 502)
+            data = islice(sheet.iter_rows(min_row=1, min_col=1, max_col=9), 502)
             headers = tuple(str(cell.value or "").strip().casefold() for cell in next(data))
-            if headers != ("mã nhân sự", "họ và tên", "tổ chuyên môn"):
-                fail("Ba cột đầu cần có tiêu đề Mã nhân sự, Họ và tên, Tổ chuyên môn.")
+            smart = headers == SMARTSCHEDULER_HEADERS
+            if not smart and headers[:3] != EMPLOYEE_HEADERS:
+                fail("Hãy dùng mẫu Nhân sự EDUSCHOOL hoặc mẫu danh sách giáo viên SmartScheduler 9 cột.")
             seen = set()
             result = []
             for index, cells in enumerate(data, 2):
                 if index > 501:
                     fail("Chỉ nhập tối đa 500 dòng mỗi lần.")
+                cells = cells[1:4] if smart else cells[:3]
                 if all(cell.value is None for cell in cells):
                     continue
                 if any(cell.data_type == "f" for cell in cells):
                     fail(f"Dòng {index}: chỉ nhập giá trị, không dùng công thức.")
-                form = EmployeeForm(dict(zip(("code", "name", "department"),
-                                             (str(cell.value) if cell.value is not None else "" for cell in cells))))
+                fields = [str(cell.value) if cell.value is not None else "" for cell in cells]
+                if smart:
+                    surname, name, code = fields
+                    fields = [code, " ".join((surname + " " + name).split()), ""]
+                form = EmployeeForm(dict(zip(("code", "name", "department"), fields)))
                 if not form.is_valid():
                     fail(f"Dòng {index}: kiểm tra mã, tên và độ dài các trường.")
                 code = form.cleaned_data["code"].upper()

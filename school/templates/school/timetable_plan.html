@@ -36,6 +36,7 @@
 
 {% if not plan %}
 <section class="card" id="phan-cong">
+  <span id="gioi-han-giao-vien"></span><span id="tiet-nghi-co-dinh"></span><span id="toi-uu-tkb"></span>
   <h2>Phân công giảng dạy</h2>
   <p id="rang-buoc">Tuần này chưa có khung học để nhập phân công và khai báo ràng buộc.</p>
   {% if week.state == "draft" %}<a class="button" id="xep-lich" href="#khung-hoc">Thiết lập khung học</a>{% endif %}
@@ -98,7 +99,7 @@
 
 <section class="card" aria-labelledby="rules-title" id="rang-buoc">
   <h2 id="rules-title">3. Khai báo giờ giáo viên bận</h2>
-  <p class="hint">Bộ xếp lịch còn kiểm tra ngày lễ và ngày nghỉ đã được duyệt. Các tiết đã có trên lưới được giữ nguyên.</p>
+  <p class="hint">Bộ xếp lịch cũng kiểm tra ngày lễ và ngày nghỉ đã được duyệt. Chế độ xếp bổ sung giữ nguyên các tiết đã có.</p>
   {% if week.state == "draft" %}<form method="post" class="form-row">
     {% csrf_token %}{% include "school/timetable_revision.html" %}
     {% for field in block_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
@@ -108,6 +109,34 @@
     <span>{{ item.teacher }} · {{ item.date|date:"d/m/Y" }} · Tiết {{ item.first }}–{{ item.last }}</span>
     {% if week.state == "draft" %}<form method="post">{% csrf_token %}{% include "school/timetable_revision.html" %}<input type="hidden" name="row" value="{{ item.pk }}"><button name="action" value="unblock">Bỏ giờ bận</button></form>{% endif %}
   </div>{% empty %}<p class="hint">Chưa có giờ bận riêng cho tuần này.</p>{% endfor %}
+</section>
+
+<section class="card" id="gioi-han-giao-vien" aria-labelledby="teacher-limit-title">
+  <h2 id="teacher-limit-title">Giới hạn ngày và tiết dạy của giáo viên</h2>
+  <p class="hint">Để trống các giới hạn không áp dụng. Lưu lại cùng một giáo viên sẽ cập nhật các giới hạn của người đó trong tuần.</p>
+  {% if week.state == "draft" %}<form method="post" class="form-row">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    {% for field in teacher_limit_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
+    <button name="action" value="teacher_limit">Lưu giới hạn</button>
+  </form>{% endif %}
+  {% for item in teacher_limits %}<div class="list-item">
+    <span>{{ item.teacher }} · Ngày/tuần {{ item.days|default_if_none:"—" }} · Tiết/ngày {{ item.daily|default_if_none:"—" }} · Tiết/buổi {{ item.session|default_if_none:"—" }}</span>
+    {% if week.state == "draft" %}<form method="post">{% csrf_token %}{% include "school/timetable_revision.html" %}<input type="hidden" name="row" value="{{ item.pk }}"><button name="action" value="remove_teacher_limit">Xóa giới hạn</button></form>{% endif %}
+  </div>{% empty %}<p class="hint">Chưa có giới hạn riêng.</p>{% endfor %}
+</section>
+
+<section class="card" id="tiet-nghi-co-dinh" aria-labelledby="fixed-break-title">
+  <h2 id="fixed-break-title">Cố định tiết nghỉ của lớp, môn và phòng</h2>
+  <p class="hint">Chọn đối tượng từ bảng phân công hoặc lưới lịch của tuần. Nếu đã xếp tiết trùng, hãy dời tiết hoặc tạo phương án tối ưu.</p>
+  {% if week.state == "draft" %}<form method="post" class="form-row">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    {% for field in break_form %}<label>{{ field.label }}{{ field }}</label>{% endfor %}
+    <button name="action" value="resource_break">Thêm tiết nghỉ</button>
+  </form>{% endif %}
+  {% for item in breaks %}<div class="list-item">
+    <span>{{ item.get_kind_display }} {{ item.resource }} · {{ item.date|date:"d/m/Y" }} · Tiết {{ item.first }}–{{ item.last }}</span>
+    {% if week.state == "draft" %}<form method="post">{% csrf_token %}{% include "school/timetable_revision.html" %}<input type="hidden" name="row" value="{{ item.pk }}"><button name="action" value="remove_break">Bỏ tiết nghỉ</button></form>{% endif %}
+  </div>{% empty %}<p class="hint">Chưa có tiết nghỉ cố định.</p>{% endfor %}
 </section>
 
 <section class="card" aria-labelledby="solver-title" id="xep-lich">
@@ -120,6 +149,14 @@
     {% csrf_token %}{% include "school/timetable_revision.html" %}
     <button class="primary" name="action" value="solve"{% if not required %} disabled{% endif %}>Tạo phương án CP-SAT</button>
   </form>
+  <div class="subsection" id="toi-uu-tkb">
+    <h3>Tối ưu thời khóa biểu</h3>
+    <p class="hint">Giảm tiết trống giữa buổi của giáo viên và dồn môn trong ngày. Các tiết đã cố định được giữ nguyên. Xem phương án trước khi áp dụng.</p>
+    <form method="post" action="#toi-uu-tkb" class="actions">
+      {% csrf_token %}{% include "school/timetable_revision.html" %}
+      <button name="action" value="optimize"{% if not required %} disabled{% endif %}>Tạo phương án tối ưu</button>
+    </form>
+  </div>
   {% endif %}
   {% if result %}
     <div class="subsection" role="status">
@@ -130,6 +167,7 @@
   {% endif %}
   {% if proposal %}
   <h3>Xem trước {{ proposal|length }} tiết đề xuất</h3>
+  {% if optimization %}<p>Giữ nguyên {{ pinned_count }} tiết đã cố định. Thay vị trí {{ moved_count }} tiết hiện có. Số tiết trống giữa buổi của giáo viên {{ old_gaps }} → {{ new_gaps }}.</p>{% endif %}
   <div class="table-wrap" tabindex="0" role="region" aria-label="Các tiết do CP-SAT đề xuất">
     <table><thead><tr><th>Ngày</th><th>Tiết</th><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Phòng</th></tr></thead>
     <tbody>{% for day, row, teacher in proposal %}<tr><td>{{ day|date:"d/m/Y" }}</td><td>{{ row.period }}</td><td>{{ row.classroom }}</td><td>{{ row.subject }}</td><td>{{ teacher }}</td><td>{{ row.room }}</td></tr>{% endfor %}</tbody></table>
@@ -137,7 +175,8 @@
   <form method="post" class="actions">
     {% csrf_token %}{% include "school/timetable_revision.html" %}
     <input type="hidden" name="token" value="{{ solve_token }}">
-    <button class="primary" name="action" value="apply_solve">Xác nhận đưa vào bản nháp</button>
+    {% if optimization %}<button class="primary" name="action" value="apply_optimize">Xác nhận áp dụng phương án tối ưu</button>
+    {% else %}<button class="primary" name="action" value="apply_solve">Xác nhận đưa vào bản nháp</button>{% endif %}
     <a class="button" href="{% url 'timetable_plan' week.pk %}#xep-lich">Hủy phương án</a>
   </form>
   {% endif %}

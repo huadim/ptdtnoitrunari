@@ -1,6 +1,6 @@
 """Teaching plans, Excel intake and reviewable scheduling proposals."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date, timedelta
 from hashlib import sha256
 from io import BytesIO
@@ -18,9 +18,10 @@ from django.urls import reverse
 from .access import record, require, school_view
 from .common import employees, fail, page, post_form
 from .forms import date_field
-from .models import Decision, Employee, Holiday, Lesson, Request, State, TeachingRequirement, TimetablePlan
+from .models import Decision, Employee, Holiday, Lesson, Request, State, TeachingBreak, TeachingRequirement, TimetablePlan
 from .timetable import get_week
-from .timetable_solver import DAY_NAMES, MAX_PERIODS, Entry, Problem, Requirement, solve, validate
+from .timetable_solver import (BREAK_FIELDS, DAY_NAMES, MAX_PERIODS, Entry, Problem, Requirement, TeacherLimit,
+                               solve, spread_cost, teacher_gap_cost, validate)
 
 EXCEL_HEADERS = ("Mã giáo viên", "Lớp", "Môn", "Phòng", "Số tiết", "Số cặp tiết đôi", "Buổi")
 SESSION_NAMES = {"sáng": "am", "chiều": "pm", "cả hai": "any", "": "any"}
@@ -64,23 +65,71 @@ class RequirementForm(forms.Form):
         return data
 
 
-class UnavailableForm(forms.Form):
-    teacher = forms.ModelChoiceField(label="Giáo viên", queryset=None)
-    date = date_field("Ngày bận")
+class PeriodRangeForm(forms.Form):
+    date = date_field("Ngày")
     first = forms.IntegerField(label="Từ tiết", min_value=1, max_value=15)
     last = forms.IntegerField(label="Đến tiết", min_value=1, max_value=15)
 
-    def __init__(self, *args, teachers, week, **kwargs):
+    def __init__(self, *args, week, **kwargs):
         super().__init__(*args, **kwargs)
         self.week = week
-        self.fields["teacher"].queryset = teachers
 
     def clean(self):
         data = super().clean()
         if "date" in data and not 0 <= (data["date"] - self.week.monday).days < 7:
-            self.add_error("date", "Ngày bận phải thuộc tuần đang mở.")
+            self.add_error("date", "Ngày phải thuộc tuần đang mở.")
         if "first" in data and "last" in data and data["first"] > data["last"]:
             self.add_error("last", "Tiết kết thúc phải từ tiết bắt đầu trở đi.")
+        return data
+
+
+class UnavailableForm(PeriodRangeForm):
+    teacher = forms.ModelChoiceField(label="Giáo viên", queryset=None)
+    field_order = ("teacher", "date", "first", "last")
+
+    def __init__(self, *args, teachers, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["teacher"].queryset = teachers
+
+
+class TeachingBreakForm(PeriodRangeForm):
+    target = forms.ChoiceField(label="Lớp, môn hoặc phòng")
+    field_order = ("target", "date", "first", "last")
+
+    def __init__(self, *args, plan, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.plan = plan
+        choices = []
+        if plan:
+            fields = tuple(BREAK_FIELDS[kind] for kind, _ in TeachingBreak.Kind.choices)
+            rows = list(plan.requirements.values_list(*fields)) + list(self.week.lesson_set.values_list(*fields))
+            for index, (kind, label) in enumerate(TeachingBreak.Kind.choices):
+                names = {row[index] for row in rows}
+                resources = {name.casefold(): name for name in sorted(names)}
+                choices.append((label, [(f"{kind}:{name}", name) for name in sorted(resources.values(), key=str.casefold)]))
+        self.fields["target"].choices = [("", "Chọn đối tượng"), *choices]
+
+    def clean(self):
+        data = super().clean()
+        if self.plan and "last" in data and data["last"] > self.plan.morning + self.plan.afternoon:
+            self.add_error("last", "Tiết kết thúc vượt quá khung học của tuần.")
+        return data
+
+
+class TeacherLimitForm(forms.Form):
+    teacher = forms.ModelChoiceField(label="Giáo viên", queryset=None)
+    days = forms.IntegerField(label="Tối đa ngày/tuần", required=False, min_value=1, max_value=7)
+    daily = forms.IntegerField(label="Tối đa tiết/ngày", required=False, min_value=1, max_value=15)
+    session = forms.IntegerField(label="Tối đa tiết/buổi", required=False, min_value=1, max_value=10)
+
+    def __init__(self, *args, teachers, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["teacher"].queryset = teachers
+
+    def clean(self):
+        data = super().clean()
+        if not self.errors and all(data[field] is None for field in ("days", "daily", "session")):
+            raise ValidationError("Nhập ít nhất một giới hạn. Để bỏ giới hạn, dùng nút Xóa trong danh sách.")
         return data
 
 
@@ -102,19 +151,26 @@ def problem_for(week, plan):
                        for period in range(1, 16))
     holidays = Holiday.objects.filter(school=week.school, date__in=days).values_list("date", flat=True)
     active = set(Employee.objects.filter(school=week.school, active=True, pk__in=people).values_list("pk", flat=True))
+    resource_breaks = frozenset((block.kind, block.resource.casefold(), days[block.date], period)
+                                for block in plan.breaks.all() if block.date in days
+                                for period in range(block.first, block.last + 1))
+    limits = tuple(TeacherLimit(row.teacher_id, f"{row.teacher.name} · {row.teacher.code}", row.days, row.daily, row.session)
+                   for row in plan.teacher_limits.filter(teacher__school=week.school).select_related("teacher").order_by("pk"))
     return Problem(tuple(day for day in map(int, plan.days) if day in days.values()), plan.morning, plan.afternoon, items, existing,
-                   frozenset(unavailable), frozenset(days[day] for day in holidays), frozenset(people - active))
+                   frozenset(unavailable), frozenset(days[day] for day in holidays), frozenset(people - active),
+                   resource_breaks, limits)
 
 
 def to_entry(week, lesson):
     return Entry(lesson.teacher_id, lesson.classroom, lesson.subject, lesson.room,
-                 (lesson.date - week.monday).days, lesson.period)
+                 (lesson.date - week.monday).days, lesson.period, lesson.pinned)
 
 
 def fingerprint(week, problem):
     data = (week.revision, problem.days, problem.morning, problem.afternoon,
             [asdict(item) for item in problem.requirements], [asdict(item) for item in problem.fixed],
-            sorted(problem.unavailable), sorted(problem.holidays), sorted(problem.inactive))
+            sorted(problem.unavailable), sorted(problem.holidays), sorted(problem.inactive),
+            sorted(problem.resource_breaks), [asdict(limit) for limit in problem.teacher_limits])
     return sha256(dumps(data, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
@@ -219,33 +275,63 @@ def check_new_requirements(plan, proposed, editing=None):
         raise ValidationError(issues[:20])
 
 
-def prepare_solve(request, week, plan):
+def prepare_solve(request, week, plan, *, optimize=False):
     problem = problem_for(week, plan)
-    result = solve(problem)
+    fixed = tuple(entry for entry in problem.fixed if entry.pinned) if optimize else problem.fixed
+    movable = frozenset(problem.fixed) - frozenset(fixed)
+    result = solve(replace(problem, fixed=fixed), preferred=movable if optimize else None)
     if not result.entries:
         return {"result": result}
+    context = {}
+    if optimize:
+        after = (*fixed, *result.entries)
+        old_gaps = teacher_gap_cost(problem, problem.fixed)
+        new_gaps = teacher_gap_cost(problem, after)
+        before_score = spread_cost(problem.fixed) + 2 * old_gaps
+        after_score = spread_cost(after) + 2 * new_gaps
+        if not validate(problem, problem.fixed, complete=True) and after_score >= before_score:
+            return {"result": replace(result, entries=(), messages=("Chưa tìm được phương án tốt hơn lịch hiện tại.",))}
+        context.update(optimization=True, old_gaps=old_gaps, new_gaps=new_gaps,
+                       moved_count=len(movable.difference(result.entries)), pinned_count=len(fixed))
     staff = {row.teacher: row.teacher_label for row in problem.requirements}
     rows = sorted(result.entries, key=lambda row: (row.day, row.period, row.classroom))
-    return {"result": result, "proposal": [(week.monday + timedelta(days=row.day), row, staff[row.teacher]) for row in rows],
-            "solve_token": sign(request, week, "solve", [fingerprint(week, problem), [asdict(row) for row in rows]])}
+    purpose = "optimize" if optimize else "solve"
+    return {**context, "result": result,
+            "proposal": [(week.monday + timedelta(days=row.day), row, staff[row.teacher]) for row in rows],
+            "solve_token": sign(request, week, purpose, [fingerprint(week, problem), [asdict(row) for row in rows]])}
 
 
-def apply_solve(request, week, plan):
-    original, rows = read_signed(request, week, "solve")
+def apply_solve(request, week, plan, *, optimize=False):
+    original, rows = read_signed(request, week, "optimize" if optimize else "solve")
     problem = problem_for(week, plan)
     if original != fingerprint(week, problem):
         fail("Dữ liệu tuần đã thay đổi sau khi tạo phương án. Hãy chạy lại bộ xếp lịch.")
     proposed = tuple(Entry(**row) for row in rows)
-    errors = validate(problem, (*problem.fixed, *proposed), complete=True)
+    fixed = tuple(entry for entry in problem.fixed if entry.pinned) if optimize else problem.fixed
+    errors = validate(problem, (*fixed, *proposed), complete=True)
     if errors:
         raise ValidationError(errors[:20])
+    new_entries = proposed
+    removed = 0
+    if optimize:
+        existing = {to_entry(week, row): row.pk for row in week.lesson_set.all()}
+        desired = set(proposed)
+        replaced = [pk for entry, pk in existing.items() if not entry.pinned and entry not in desired]
+        if replaced:
+            week.lesson_set.filter(pk__in=replaced).delete()
+        removed = len(replaced)
+        new_entries = [row for row in proposed if row not in existing]
     Lesson.objects.bulk_create([
         Lesson(week=week, date=week.monday + timedelta(days=row.day), period=row.period,
-               classroom=row.classroom, subject=row.subject, room=row.room, teacher_id=row.teacher) for row in proposed
+               classroom=row.classroom, subject=row.subject, room=row.room, teacher_id=row.teacher) for row in new_entries
     ])
     advance_revision(week)
-    record(request, "timetable.solve_apply", f"Tuần #{week.pk}, bổ sung {len(proposed)} tiết sau khi xác nhận.")
-    messages.success(request, f"Đã đưa {len(proposed)} tiết vào bản nháp.")
+    if optimize:
+        record(request, "timetable.optimize_apply", f"Tuần #{week.pk}, thay vị trí {removed} tiết.")
+        messages.success(request, "Đã áp dụng phương án tối ưu vào bản nháp.")
+    else:
+        record(request, "timetable.solve_apply", f"Tuần #{week.pk}, bổ sung {len(new_entries)} tiết sau khi xác nhận.")
+        messages.success(request, f"Đã đưa {len(new_entries)} tiết vào bản nháp.")
     return redirect("week", pk=week.pk)
 
 
@@ -288,6 +374,21 @@ def handle_plan_action(request, week, plan, teachers):
         plan.unavailable.get_or_create(**data)
     elif action == "unblock":
         get_object_or_404(plan.unavailable, pk=request.POST.get("row")).delete()
+    elif action == "resource_break":
+        form = TeachingBreakForm(request.POST, week=week, plan=plan, prefix="break")
+        if not (data := post_form(request, form)):
+            return redirect("timetable_plan", pk=week.pk)
+        kind, resource = data.pop("target").split(":", 1)
+        plan.breaks.get_or_create(kind=kind, resource=resource, **data)
+    elif action == "remove_break":
+        get_object_or_404(plan.breaks, pk=request.POST.get("row")).delete()
+    elif action == "teacher_limit":
+        form = TeacherLimitForm(request.POST, teachers=teachers, prefix="teacher-limit")
+        if not (data := post_form(request, form)):
+            return redirect("timetable_plan", pk=week.pk)
+        plan.teacher_limits.update_or_create(teacher=data.pop("teacher"), defaults=data)
+    elif action == "remove_teacher_limit":
+        get_object_or_404(plan.teacher_limits.filter(teacher__school=week.school), pk=request.POST.get("row")).delete()
     elif action == "preview_import":
         upload = request.FILES.get("workbook")
         if upload is None:
@@ -306,10 +407,10 @@ def handle_plan_action(request, week, plan, teachers):
         check_new_requirements(plan, incoming)
         TeachingRequirement.objects.bulk_create([TeachingRequirement(plan=plan, **data) for _, data in incoming])
         messages.success(request, f"Đã nhập {len(incoming)} phân công.")
-    elif action == "solve":
-        return prepare_solve(request, week, plan)
-    elif action == "apply_solve":
-        return apply_solve(request, week, plan)
+    elif action in {"solve", "optimize"}:
+        return prepare_solve(request, week, plan, optimize=action == "optimize")
+    elif action in {"apply_solve", "apply_optimize"}:
+        return apply_solve(request, week, plan, optimize=action == "apply_optimize")
     else:
         fail("Thao tác không hợp lệ.")
     advance_revision(week)
@@ -349,6 +450,11 @@ def timetable_plan(request, pk):
     return page(request, "timetable_plan", week=week, menu_week=week, plan=plan, plan_form=PlanForm(initial=initial),
                 requirements=plan.requirements.select_related("teacher") if plan else (),
                 blocked=plan.unavailable.select_related("teacher") if plan else (),
+                breaks=plan.breaks.all() if plan else (),
+                teacher_limits=plan.teacher_limits.filter(teacher__school=week.school).select_related("teacher") if plan else (),
+                break_form=TeachingBreakForm(week=week, plan=plan, prefix="break",
+                                              initial={"date": week.monday, "first": 1, "last": 1}) if plan else None,
+                teacher_limit_form=TeacherLimitForm(teachers=teachers, prefix="teacher-limit"),
                 requirement_form=RequirementForm(teachers=teachers, initial={
                     **{field: getattr(edit, field) for field in ("classroom", "subject", "room", "periods", "doubles", "session")},
                     "teacher": edit.teacher_id} if edit else None),
