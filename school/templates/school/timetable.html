@@ -1,6 +1,8 @@
 {% extends "school/base.html" %}
 {% block title %}Thời khóa biểu lên lớp{% endblock %}
+{% block extra_head %}{% include "school/timetable_menu_assets.html" %}{% endblock %}
 {% block content %}
+{% include "school/timetable_menu.html" %}
 <header class="page-head workspace-head">
   <div>
     <span class="eyebrow">Không gian giảng dạy</span>

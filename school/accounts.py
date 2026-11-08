@@ -17,6 +17,7 @@ from .access import record, require, school_view
 from .common import fail, page, post_form
 from .forms import AccountForm, PasswordSetupForm, RegistrationForm, RoleForm
 from .models import AccountInvitation, Audit, Employee, LoginBucket, Membership, Role, School, Slot, State
+from .timetable import visible_weeks
 
 
 def delegation(data):
@@ -156,6 +157,7 @@ def account_detail(request, pk):
     member = getattr(employee, "membership", None)
     initial = {field: getattr(member, field) for field in ("role", "approve_duty", "approve_attendance")} if member else {}
     return page(request, "account_detail", employee=employee, target_member=member,
+                menu_week=visible_weeks(request).order_by("-monday").first(),
                 account_form=AccountForm(initial={"role": Role.TEACHER}), role_form=RoleForm(initial=initial),
                 password_form=PasswordSetupForm(), registration_url=request.build_absolute_uri("/dang-ky/"), **result)
 

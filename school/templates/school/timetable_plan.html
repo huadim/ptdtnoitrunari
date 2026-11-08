@@ -1,6 +1,8 @@
 {% extends "school/base.html" %}
 {% block title %}Kế hoạch giảng dạy{% endblock %}
+{% block extra_head %}{% include "school/timetable_menu_assets.html" %}{% endblock %}
 {% block content %}
+{% include "school/timetable_menu.html" %}
 <header class="page-head">
   <a class="back" href="{% url 'week' week.pk %}">← Lưới thời khóa biểu</a>
   <span class="eyebrow">Thời khóa biểu lên lớp</span>
@@ -29,6 +31,14 @@
       <button class="primary" name="action" value="settings">Lưu khung học</button>
     </div>
   </form>
+</section>
+{% endif %}
+
+{% if not plan %}
+<section class="card" id="phan-cong">
+  <h2>Phân công giảng dạy</h2>
+  <p id="rang-buoc">Tuần này chưa có khung học để nhập phân công và khai báo ràng buộc.</p>
+  {% if week.state == "draft" %}<a class="button" id="xep-lich" href="#khung-hoc">Thiết lập khung học</a>{% endif %}
 </section>
 {% endif %}
 

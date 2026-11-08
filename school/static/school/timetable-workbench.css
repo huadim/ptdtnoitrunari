@@ -12,7 +12,7 @@
 .timetable-workbench-page .alerts, .timetable-workbench-page .lesson-editor { margin: 8px; }
 .workbench-header, .workbench-pane { background: #fff; }
 .workbench-header svg, .workbench-pane svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.workbench-titlebar, .workbench-menu, .workbench-commands {
+.workbench-titlebar, .workbench-commands {
   display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--bench-line);
 }
 .workbench-titlebar { gap: 7px 12px; padding-block: 6px; background: #eaf1fa; }
@@ -20,23 +20,21 @@
 .workbench-brand { color: #153f77; text-decoration: none; font-weight: 750; }
 .workbench-brand span, .workbench-year { color: #526379; }
 .workbench-titlebar .badge { padding: 1px 7px; }
-.workbench-menu details, .workbench-commands details, .workbench-filter { position: relative; }
-.workbench-menu > a, .workbench-menu summary, .workbench-commands > a, .workbench-commands summary, .workbench-week-links a, .workbench-filter summary {
+.workbench-commands details, .workbench-filter { position: relative; }
+.workbench-commands > a, .workbench-commands summary, .workbench-week-links a, .workbench-filter summary {
   display: flex; align-items: center; gap: 5px; min-height: 29px; padding: 3px 7px; margin: 0; color: #273d59; font-weight: 600; text-decoration: none;
 }
 .workbench-header summary, .workbench-filter summary { list-style: none; }
 .workbench-header summary::-webkit-details-marker, .workbench-filter summary::-webkit-details-marker { display: none; }
-.workbench-header a:hover, .workbench-header summary:hover, .workbench-header details[open] > summary, .workbench-filter summary:hover { background: #e3eeff; }
-.workbench-header details > div, .workbench-filter form {
+.workbench-commands a:hover, .workbench-commands summary:hover, .workbench-commands details[open] > summary, .workbench-filter summary:hover { background: #e3eeff; }
+.workbench-commands details > div, .workbench-filter form {
   position: absolute; top: 100%; left: 0; z-index: 5; min-width: max-content; margin: 0; padding: 4px;
   background: #fff; border: 1px solid #aabbd1; box-shadow: 0 4px 12px #223a5920;
 }
-.workbench-menu details:nth-last-child(2) > div { left: auto; right: 0; }
-.workbench-header details > div a, .workbench-header details > div button, .workbench-header details label {
+.workbench-commands details > div a {
   display: flex; align-items: center; gap: 5px; padding: 5px 9px; width: 100%; min-height: 28px; justify-content: flex-start;
   text-align: start; text-decoration: none; color: #243e60; border: 0; border-radius: 0; font-weight: 500;
 }
-.workbench-header details label[hidden] { display: none; }
 .workbench-commands { gap: 3px; padding-block: 3px; background: #f8fafc; }
 .workbench-commands svg { width: 20px; height: 20px; color: #2564a8; }
 .workbench-commands .command-solve svg { color: #b45f16; fill: #ffe0a5; }

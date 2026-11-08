@@ -1,6 +1,11 @@
 {% extends "school/base.html" %}
 {% block title %}Quản lý tài khoản{% endblock %}
+{% block extra_head %}{% include "school/timetable_menu_assets.html" %}{% endblock %}
 {% block content %}
+<section class="tkb-account-menu" aria-label="Lối tắt thời khóa biểu">
+  <p><strong>Thời khóa biểu lên lớp</strong>{% if menu_week %} · Tuần từ {{ menu_week.monday|date:"d/m/Y" }}{% endif %}</p>
+  {% include "school/timetable_menu.html" %}
+</section>
 <header class="page-head"><a class="back" href="{% url 'accounts' %}">← Tài khoản và phân quyền</a><h1>{{ employee.name }}</h1><p>{{ employee.code }} · {{ employee.department|default:"Chưa có tổ chuyên môn" }}</p></header>
 {% if invite_code %}<section class="card access-card"><h2>Mã mời đăng ký đã được tạo</h2><p>Giao mã này cho đúng nhân sự để họ tự đặt tên đăng nhập và mật khẩu. Mã có hiệu lực đến {{ expires_at|date:"H:i d/m/Y" }}.</p><label for="invite-code">Mã mời dùng một lần<input id="invite-code" class="invite-code" value="{{ invite_code }}" readonly autocomplete="off" spellcheck="false"></label><p class="hint">Hãy sao chép mã ngay. Hệ thống chỉ lưu bản băm của mã.</p><p><a href="{% url 'register' %}">{{ registration_url }}</a></p></section>{% endif %}
 <section class="card"><h2>Thông tin truy cập</h2><p><strong>{{ target_member.user.username|default:"Chưa có tên đăng nhập" }}</strong></p><p>{{ target_member.get_role_display|default:"Chưa cấp vai trò" }}{% if target_member %} · {% if target_member.user.is_active %}Tài khoản đang hoạt động{% else %}Tài khoản tạm khóa{% endif %}{% endif %}</p></section>

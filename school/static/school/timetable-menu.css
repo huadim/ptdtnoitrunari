@@ -1,0 +1,85 @@
+.tkb-menubar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 2px 6px;
+  border-block: 1px solid #ccd0d5;
+  background: #fafafa;
+  color: #292d33;
+  font: 13px/1.35 system-ui, sans-serif;
+}
+.tkb-menubar details { position: relative; margin: 0; }
+.tkb-menubar details > summary { margin: 0; color: inherit; font-weight: 500; list-style: none; cursor: pointer; }
+.tkb-menubar summary::-webkit-details-marker { display: none; }
+.tkb-menubar > details > summary { padding: 3px 10px; white-space: nowrap; }
+.tkb-menubar summary:hover, .tkb-menubar details[open] > summary, .tkb-popup a:hover, .tkb-popup button:hover {
+  background: #dce8f8;
+}
+.tkb-menubar :is(summary, a, button, input):focus-visible { outline: 2px solid #2462a5; outline-offset: -2px; }
+.tkb-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: max(100%, 225px);
+  width: max-content;
+  max-width: min(92vw, 340px);
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid #c7cbd0;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 3px 6px #0003;
+}
+.tkb-menubar > details:nth-last-child(-n+2) > .tkb-popup { right: 0; left: auto; }
+.tkb-popup .tkb-popup { top: -5px; left: 100%; }
+.tkb-popup :is(a, summary, button, label, [aria-disabled], p) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 25px;
+  padding: 3px 9px 3px 21px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  text-align: start;
+  text-decoration: none;
+  font: inherit;
+}
+.tkb-popup button { width: 100%; }
+.tkb-popup label { justify-content: flex-start; cursor: pointer; }
+.tkb-popup label[hidden] { display: none; }
+.tkb-popup input[type=checkbox] { margin: 0; }
+.tkb-popup [aria-disabled], .tkb-popup p { color: #6e737a; }
+.tkb-popup summary::after { content: "›"; margin-left: auto; font-size: 16px; line-height: 1; }
+.tkb-popup hr { margin: 3px 4px 3px 17px; border: 0; border-top: 1px solid #d4d7db; }
+.tkb-popup kbd { color: #555d67; font: inherit; }
+.tkb-account-menu { margin-bottom: 14px; }
+.tkb-account-menu > p { margin: 0; padding: 5px 8px; color: #42546a; background: #eaf1fa; font-size: .8rem; }
+.tkb-menu-actions { margin-top: 12px; }
+[data-tkb-print][hidden] { display: none; }
+
+@media (max-width: 800px) {
+  .tkb-menubar > details { position: static; }
+  .tkb-menubar > details > .tkb-popup,
+  .tkb-menubar > details:nth-last-child(-n+2) > .tkb-popup {
+    left: 0; right: 0; min-width: 0; width: auto; max-width: none;
+    max-height: 68vh; overflow: auto;
+  }
+  .tkb-popup .tkb-popup {
+    position: static; min-width: 0; width: auto; max-width: none;
+    margin: 0 0 0 18px; border: 0; border-left: 2px solid #dae3ee;
+    border-radius: 0; box-shadow: none;
+  }
+}
+@media print {
+  .tkb-menubar, .tkb-menu-actions, .tkb-report-page .sidebar, .tkb-report-heading .back { display: none; }
+  .tkb-report-page .shell { display: block; min-height: 0; }
+  .tkb-report-page .shell main { padding: 0; }
+  .tkb-report-page .card { border: 0; box-shadow: none; }
+  .tkb-report-page tr { break-inside: avoid; }
+}

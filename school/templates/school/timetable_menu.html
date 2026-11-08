@@ -1,0 +1,136 @@
+{% with week=menu_week %}
+<nav class="tkb-menubar" aria-label="Menu thời khóa biểu" data-tkb-menu>
+  <details><summary>Hệ thống</summary><div class="tkb-popup">
+    {% if rights.plan %}<a href="{% url 'timetable' %}#tao-tuan" data-tkb-key="Ctrl+N">Tạo tuần học mới <kbd>Ctrl+N</kbd></a>{% endif %}
+    <a href="{% url 'timetable' %}" data-tkb-key="Ctrl+O">Mở tuần học <kbd>Ctrl+O</kbd></a>
+    <span aria-disabled="true">Sao lưu dữ liệu</span>
+    <span aria-disabled="true">Sao lưu và mở dữ liệu</span>
+    <span aria-disabled="true">Ghép nối dữ liệu</span>
+    <hr>
+    <a href="{% url 'password' %}">Thay đổi mật khẩu</a>
+    <hr>
+    {% if week %}
+    <a href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Chuyển đổi dữ liệu sang Excel</a>
+    {% else %}<span aria-disabled="true">Chuyển đổi dữ liệu sang Excel</span>{% endif %}
+    <span aria-disabled="true">Chuyển đổi dữ liệu sang Website</span>
+    <span aria-disabled="true">Chuyển đổi dữ liệu sang SS Pro</span>
+    <span aria-disabled="true">Chuyển đổi dữ liệu sang SA</span>
+    <hr>
+    <span aria-disabled="true">Gửi thông báo TKB qua Email</span>
+    <span aria-disabled="true">Gửi thông báo TKB qua Zalo OA</span>
+    {% if week and rights.plan %}<a href="{% url 'timetable_report' week.pk 'assignments' %}">In bảng PCGD</a>
+    {% else %}<span aria-disabled="true">In bảng PCGD</span>{% endif %}
+    {% if week %}<details><summary>In TKB</summary><div class="tkb-popup">
+      <a href="{% url 'timetable_export' week.pk 'pdf' %}{% if export_query %}?{{ export_query }}{% endif %}">In PDF A4</a>
+      <a href="{% url 'timetable_export' week.pk 'docx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Word</a>
+      <a href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Excel</a>
+    </div></details>{% endif %}
+    <hr>
+    <a href="{% url 'home' %}">Tổng quan nhà trường</a>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Đăng xuất</button></form>
+  </div></details>
+  <details><summary>Dữ liệu</summary><div class="tkb-popup">
+    {% if rights.settings %}<a href="{% url 'configuration' %}">Thông tin chung</a>
+    {% else %}<a href="{% url 'timetable' %}">Thông tin chung về tuần học</a>{% endif %}
+    <hr>
+    <span aria-disabled="true">Dữ liệu khối học</span>
+    {% if week %}<a href="{% url 'week' week.pk %}?scope=class#board-title">Dữ liệu lớp học</a>
+    {% else %}<span aria-disabled="true">Dữ liệu lớp học</span>{% endif %}
+    {% if rights.plan %}<details><summary>Dữ liệu giáo viên</summary><div class="tkb-popup">
+      <a href="{% url 'staff' %}">Danh sách nhân sự</a>
+      <a href="{% url 'staff' %}?import=1#import-staff">Nhập danh sách từ Excel</a>
+      {% if rights.settings %}<a href="{% url 'accounts' %}">Tài khoản và phân quyền</a>{% endif %}
+    </div></details>
+    {% elif week %}<a href="{% url 'week' week.pk %}?scope=teacher#board-title">Dữ liệu giáo viên</a>{% endif %}
+    {% if week %}<a href="{% url 'timetable_report' week.pk 'subjects' %}">Dữ liệu môn học</a>
+    <a href="{% url 'week' week.pk %}?scope=room#board-title">Dữ liệu phòng học</a>
+    {% else %}<span aria-disabled="true">Dữ liệu môn học</span><span aria-disabled="true">Dữ liệu phòng học</span>{% endif %}
+    {% if rights.settings %}<a href="{% url 'configuration' %}#ngay-le">Dữ liệu ngoại lệ</a>
+    {% else %}<span aria-disabled="true">Dữ liệu ngoại lệ</span>{% endif %}
+    <hr>
+    {% if week and rights.plan %}
+    <a href="{% url 'timetable_report' week.pk 'subjects' %}#so-tiet-mon">Số tiết theo phân công của môn học</a>
+    <a href="{% url 'timetable_plan' week.pk %}#phan-cong">Bảng phân công giảng dạy</a>
+    {% else %}<span aria-disabled="true">Số tiết theo phân công của môn học</span><span aria-disabled="true">Bảng phân công giảng dạy</span>{% endif %}
+    <span aria-disabled="true">Bảng phân công giảng dạy ghép</span>
+  </div></details>
+  <details><summary>Ràng buộc TKB</summary><div class="tkb-popup">
+    {% if week and rights.plan %}
+    <a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Yêu cầu của giáo viên</a>
+    <a href="{% url 'timetable_plan' week.pk %}#phan-cong">Yêu cầu của môn học</a>
+    {% else %}<span aria-disabled="true">Yêu cầu của giáo viên</span><span aria-disabled="true">Yêu cầu của môn học</span>{% endif %}
+    <span aria-disabled="true">Yêu cầu của nhóm môn học</span>
+    <hr>
+    {% if week and rights.plan %}
+    <a href="{% url 'timetable_plan' week.pk %}#rang-buoc">Cố định giờ giáo viên bận</a>
+    {% if week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#khung-hoc">Giới hạn số tiết theo buổi</a>{% endif %}
+    {% else %}<span aria-disabled="true">Cố định giờ giáo viên bận</span>{% endif %}
+    <span aria-disabled="true">Cố định tiết nghỉ chung</span>
+    <hr>
+    <span aria-disabled="true">Xóa toàn bộ ràng buộc TKB</span>
+  </div></details>
+  <details><summary>Soạn thảo</summary><div class="tkb-popup">
+    <span aria-disabled="true">Sao lưu và phục hồi phương án xếp TKB</span>
+    <hr>
+    {% if week and rights.plan and week.state == 'draft' %}
+    <a href="{% url 'week' week.pk %}?view=list#board-title">Xóa TKB · chọn tiết cần xóa</a>
+    {% else %}<span aria-disabled="true">Xóa TKB</span>{% endif %}
+    <span aria-disabled="true">Cố định TKB</span>
+    <span aria-disabled="true">Tô màu TKB</span>
+    <hr>
+    {% if week and rights.plan and week.state == 'draft' %}
+    <a href="{% url 'week' week.pk %}?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor">Xếp môn học · thêm tiết</a>
+    {% else %}<span aria-disabled="true">Xếp môn học</span>{% endif %}
+    <span aria-disabled="true">Xếp tiết dạy của GVCN</span>
+    <hr>
+    {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#xep-lich">Soạn thảo TKB tự động</a>
+    {% else %}<span aria-disabled="true">Soạn thảo TKB tự động</span>{% endif %}
+    <span aria-disabled="true">Tối ưu TKB tự động sau khi xếp</span>
+    <span aria-disabled="true">Tinh chỉnh TKB tự động</span>
+    {% if week.state == 'draft' and rights.plan or week and week.state != 'draft' and week.state != 'published' and rights.duty_approve %}
+    <hr><a href="{% url 'week' week.pk %}#duyet-tkb">Duyệt và công bố</a>
+    {% endif %}
+  </div></details>
+  <details><summary>Thống kê</summary><div class="tkb-popup">
+    {% if week %}
+    <a href="{% url 'timetable_report' week.pk 'overview' %}">Thống kê TKB {% if rights.all_timetable %}toàn trường{% else %}trong phạm vi của bạn{% endif %}</a>
+    <hr>
+    <a href="{% url 'timetable_report' week.pk 'class-slot' %}">Thống kê số lớp học/1 thời điểm</a>
+    <a href="{% url 'timetable_report' week.pk 'teacher-slot' %}">Thống kê số giáo viên/1 thời điểm</a>
+    <a href="{% url 'timetable_report' week.pk 'room-slot' %}">Thống kê số phòng học/1 thời điểm</a>
+    <hr>
+    <a href="{% url 'timetable_report' week.pk 'class-session' %}">Thống kê số lớp học/1 buổi học</a>
+    <a href="{% url 'timetable_report' week.pk 'teacher-session' %}">Thống kê số giáo viên/1 buổi học</a>
+    <a href="{% url 'timetable_report' week.pk 'room-session' %}">Thống kê số phòng học/1 buổi học</a>
+    <hr>
+    <a href="{% url 'timetable_report' week.pk 'lesson-slot' %}">Thống kê số tiết/1 thời điểm</a>
+    <a href="{% url 'timetable_report' week.pk 'lesson-session' %}">Thống kê số tiết/1 buổi học</a>
+    {% if rights.plan %}
+    <hr>
+    <a href="{% url 'timetable_report' week.pk 'assignments' %}">Thống kê bảng PCGD</a>
+    <a href="{% url 'timetable_report' week.pk 'teacher-periods' %}">Thống kê số tiết PCGD</a>
+    {% endif %}
+    <a href="{% url 'timetable_report' week.pk 'teacher-periods' %}#tiet-da-xep">Thống kê số tiết dạy</a>
+    {% else %}<a href="{% url 'timetable' %}">Mở tuần học để xem thống kê</a>{% endif %}
+  </div></details>
+  <details><summary>Xem</summary><div class="tkb-popup">
+    {% if week %}
+    <a href="{% url 'week' week.pk %}?scope=class#board-title" data-tkb-key="F5">TKB lớp học <kbd>F5</kbd></a>
+    <a href="{% url 'week' week.pk %}?scope=teacher#board-title" data-tkb-key="F6">TKB giáo viên <kbd>F6</kbd></a>
+    <a href="{% url 'week' week.pk %}?scope=room#board-title" data-tkb-key="F7">TKB phòng học <kbd>F7</kbd></a>
+    <hr>
+    {% if rights.all_timetable %}
+    <a href="{% url 'week' week.pk %}?scope=class&amp;view=list#board-title" data-tkb-key="F9">TKB toàn trường theo lớp học <kbd>F9</kbd></a>
+    <a href="{% url 'week' week.pk %}?scope=teacher&amp;view=list#board-title" data-tkb-key="F10">TKB toàn trường theo giáo viên <kbd>F10</kbd></a>
+    <a href="{% url 'week' week.pk %}?scope=room&amp;view=list#board-title" data-tkb-key="F11">TKB toàn trường theo phòng học <kbd>F11</kbd></a>
+    {% endif %}
+    <a href="{% url 'week' week.pk %}#doi-chieu-tkb">Lưới đối chiếu</a>
+    {% if on_board and not show_sunday %}<label hidden data-sunday-control><input type="checkbox" data-toggle-sunday> Hiện Chủ nhật</label>{% endif %}
+    {% else %}<a href="{% url 'timetable' %}">Mở tuần học để xem TKB</a>{% endif %}
+  </div></details>
+  <details><summary>Trợ giúp</summary><div class="tkb-popup">
+    {% if week %}<a href="{% url 'week' week.pk %}#huong-dan-tkb" {% if on_board %}data-open-quick="help"{% endif %}>Hướng dẫn dùng thời khóa biểu</a>{% endif %}
+    <p>Mục màu xám chưa khả dụng.</p>
+  </div></details>
+</nav>
+{% endwith %}

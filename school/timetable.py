@@ -120,8 +120,8 @@ def timetable(request):
     else:
         today = localdate()
         form = WeekForm(initial={"monday": today - timedelta(days=today.weekday())})
-    weeks = visible_weeks(request).order_by("-monday")
-    return page(request, "timetable", weeks=weeks[:100], week_form=form)
+    weeks = list(visible_weeks(request).order_by("-monday")[:100])
+    return page(request, "timetable", weeks=weeks, menu_week=weeks[0] if weeks else None, week_form=form)
 
 
 @school_view
@@ -157,6 +157,10 @@ def week_detail(request, pk):
     scoped = scoped_lessons(request, week)
     all_lessons = list(scoped)
     rows = list(filtered_lessons(scoped, filters)) if filters else all_lessons
+    if list_view and scope in {"class", "teacher", "room"}:
+        order = {"class": lambda item: item.classroom.casefold(), "teacher": lambda item: item.teacher.name.casefold(),
+                 "room": lambda item: item.room.casefold()}
+        rows = sorted(rows, key=order[scope])
     days = [week.monday + timedelta(days=offset) for offset in range(min(6, (date.max - week.monday).days) + 1)]
     cells = defaultdict(list)
     for lesson in rows:
@@ -210,7 +214,7 @@ def week_detail(request, pk):
     weeks = visible_weeks(request)
     selected_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("focus")), None)
     show_sunday = bool(plan and "6" in plan.days) or any(lesson.date.weekday() == 6 for lesson in all_lessons)
-    return page(request, "week", week=week, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
+    return page(request, "week", week=week, menu_week=week, on_board=True, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
                 last_day=days[-1],
                 lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open,
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),

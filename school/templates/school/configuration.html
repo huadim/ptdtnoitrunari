@@ -23,7 +23,7 @@
 </details>{% empty %}<p class="empty">Chưa có loại trực.</p>{% endfor %}</section>
 <div class="panels">
 <section class="card"><h2>Lịch sử mức công</h2><div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Hiệu lực</th><th>Nhóm ngày</th><th>Công</th></tr></thead><tbody>{% for rate in rates %}<tr><td>{{ rate.duty_type.name }}</td><td>{{ rate.effective|date:"d/m/Y" }}</td><td>{{ rate.get_kind_display }}</td><td>{{ rate.units }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa có hệ số quy đổi.</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="card"><h2>Ngày lễ đã cấu hình</h2>{% for day in holidays %}<div class="list-item"><strong>{{ day.date|date:"d/m/Y" }}</strong><span>{{ day.label }}</span></div>{% empty %}<p class="empty">Chưa có ngày lễ.</p>{% endfor %}</section>
+<section class="card" id="ngay-le"><h2>Ngày lễ đã cấu hình</h2>{% for day in holidays %}<div class="list-item"><strong>{{ day.date|date:"d/m/Y" }}</strong><span>{{ day.label }}</span></div>{% empty %}<p class="empty">Chưa có ngày lễ.</p>{% endfor %}</section>
 </div>
 <section class="card"><h2>Lịch sử đơn giá tiền trực</h2><div class="table-wrap"><table><thead><tr><th>Loại trực</th><th>Hiệu lực</th><th>Đơn giá (đ/công)</th><th>Căn cứ</th></tr></thead><tbody>
 {% for rate in pay_rates %}<tr><td>{{ rate.duty_type.name }}</td><td>{{ rate.effective|date:"d/m/Y" }}</td><td>{{ rate.unit_price }}</td><td>{{ rate.reference }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">Chưa cấu hình đơn giá.</td></tr>{% endfor %}

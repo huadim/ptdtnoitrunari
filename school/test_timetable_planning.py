@@ -107,7 +107,7 @@ class TeachingPlanTests(TestCase):
         self.assertRedirects(response, self.plan_url)
 
     def test_excel_review_solve_publish_and_teacher_scope(self):
-        self.assertContains(self.client.get(self.week_url), "Phân công và tự động xếp lịch")
+        self.assertContains(self.client.get(self.week_url), "Bảng phân công giảng dạy")
         self.setup_plan()
         preview = self.client.post(self.plan_url, {"action": "preview_import", "workbook": self.workbook(
             ("GV01", "7A", "Toán", "P1", 2, 1, "Sáng"),
@@ -140,6 +140,34 @@ class TeachingPlanTests(TestCase):
         self.login(self.teacher)
         self.assertContains(self.client.get(self.week_url), "TOÁN")
         self.assertEqual(self.client.get(self.plan_url).status_code, 403)
+
+    def test_shared_menu_and_reports_respect_week_and_teacher_scope(self):
+        self.setup_plan()
+        Lesson.objects.create(week=self.week, teacher=self.teacher, date=self.monday, period=1,
+                              classroom="7A", subject="Toán", room="P1")
+        Lesson.objects.create(week=self.week, teacher=self.office, date=self.monday, period=1,
+                              classroom="7B", subject="Tin học", room="P2")
+        Lesson.objects.create(week=self.week, teacher=self.teacher, date=self.monday, period=2,
+                              classroom="7A", subject="Toán", room="P1")
+        report_url = reverse("timetable_report", args=[self.week.pk, "class-session"])
+        report = self.client.get(report_url)
+        self.assertEqual(report.context["rows"], [("09/11/2026", "Sáng", 2)])
+        self.assertEqual(self.client.post(report_url).status_code, 405)
+        self.assertEqual(self.client.get(reverse("timetable_report", args=[self.other_week.pk, "overview"])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("timetable_report", args=[self.week.pk, "unknown"])).status_code, 404)
+
+        self.login(self.principal)
+        account = self.client.get(reverse("account_detail", args=[self.teacher.pk]))
+        self.assertContains(account, 'data-tkb-menu')
+        self.assertContains(account, report_url)
+        self.assertContains(account, "Phân quyền và ủy quyền")
+
+        self.login(self.teacher)
+        self.assertEqual(self.client.get(report_url).status_code, 403)
+        self.week.state = State.PUBLISHED
+        self.week.save(update_fields=["state"])
+        self.assertEqual(self.client.get(report_url).context["rows"], [("09/11/2026", "Sáng", 1)])
+        self.assertEqual(self.client.get(reverse("timetable_report", args=[self.week.pk, "assignments"])).status_code, 403)
 
     def test_rejects_wrong_school_codes_duplicate_rows_and_stale_proposals(self):
         self.setup_plan()

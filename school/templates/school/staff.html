@@ -4,7 +4,7 @@
 <header class="page-head"><span class="eyebrow">Danh mục nhà trường</span><h1>Hồ sơ nhân sự</h1><p>Quản lý mã nhân sự, tổ chuyên môn và tài khoản của trường.</p></header>
 <div class="panels">
 <details class="card"><summary>Thêm nhân sự</summary><form method="post" class="stack">{% csrf_token %}{{ employee_form.as_p }}<button class="primary" name="action" value="create">Thêm hồ sơ</button></form></details>
-<details class="card"><summary>Nhập từ Excel</summary><p><a href="{% url 'staff_template' %}">Tải mẫu Excel</a> và điền vào ba cột có sẵn.</p>
+<details class="card" id="import-staff"{% if request.GET.import == "1" %} open{% endif %}><summary>Nhập từ Excel</summary><p><a href="{% url 'staff_template' %}">Tải mẫu Excel</a> và điền vào ba cột có sẵn.</p>
 <form method="post" class="stack" enctype="multipart/form-data">{% csrf_token %}{{ import_form.as_p }}<button class="primary" name="action" value="import">Nhập nhân sự</button></form></details>
 </div>
 <section class="card"><h2>Danh sách nhân sự</h2><div class="table-wrap"><table><thead><tr><th>Mã</th><th>Họ và tên</th><th>Tổ chuyên môn</th><th>Tài khoản</th><th>Thao tác</th></tr></thead><tbody>

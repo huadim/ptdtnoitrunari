@@ -1,7 +1,7 @@
 {% extends "school/base.html" %}
 {% load static %}
 {% block title %}Thời khóa biểu tuần {{ week.monday|date:"d/m/Y" }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'school/timetable-workbench.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'school/timetable-workbench.css' %}">{% include "school/timetable_menu_assets.html" %}{% endblock %}
 {% block body_class %}timetable-workbench-page{% endblock %}
 {% block content %}
 <script src="{% static 'school/timetable-board.js' %}" defer></script>

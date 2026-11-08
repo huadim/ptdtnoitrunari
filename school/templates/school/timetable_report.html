@@ -1,0 +1,26 @@
+{% extends "school/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block extra_head %}{% include "school/timetable_menu_assets.html" %}{% endblock %}
+{% block body_class %}tkb-report-page{% endblock %}
+{% block content %}
+{% include "school/timetable_menu.html" %}
+<header class="page-head tkb-report-heading">
+  <a class="back" href="{% url 'week' menu_week.pk %}">← Lưới thời khóa biểu</a>
+  <h1>{{ title }}</h1>
+  <p>Tuần từ {{ menu_week.monday|date:"d/m/Y" }} · Năm học {{ menu_week.academic_year }} · {{ menu_week.get_state_display }}</p>
+  <p>{% if rights.all_timetable %}Phạm vi toàn trường{% elif rights.department %}Phạm vi tổ chuyên môn của bạn{% else %}Phạm vi lịch dạy của bạn{% endif %}</p>
+  <div class="tkb-menu-actions"><button type="button" data-tkb-print hidden>In báo cáo</button></div>
+</header>
+<section class="card" id="{% if title == 'Dữ liệu môn học' %}so-tiet-mon{% else %}tiet-da-xep{% endif %}">
+  {% if grouped %}<p class="hint">Bảng hiển thị các thời điểm hoặc buổi có tiết đã xếp.</p>{% endif %}
+  {% if session_note %}<p class="hint">Tuần chưa có khung học riêng. Tiết 1–5 tính vào buổi sáng.</p>{% endif %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="{{ title }}">
+    <table><thead><tr>{% for label in headers %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% empty %}<tr><td class="empty" colspan="{{ headers|length }}">Chưa có dữ liệu cho tuần này.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

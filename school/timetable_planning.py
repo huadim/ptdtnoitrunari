@@ -346,7 +346,7 @@ def timetable_plan(request, pk):
     initial = {"days": list(plan.days if plan else "01234"), "morning": plan.morning if plan else 5,
                "afternoon": plan.afternoon if plan else 0}
     problem = problem_for(week, plan) if plan else None
-    return page(request, "timetable_plan", week=week, plan=plan, plan_form=PlanForm(initial=initial),
+    return page(request, "timetable_plan", week=week, menu_week=week, plan=plan, plan_form=PlanForm(initial=initial),
                 requirements=plan.requirements.select_related("teacher") if plan else (),
                 blocked=plan.unavailable.select_related("teacher") if plan else (),
                 requirement_form=RequirementForm(teachers=teachers, initial={
