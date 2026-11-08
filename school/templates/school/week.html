@@ -1,11 +1,8 @@
-{% extends "school/base.html" %}
+{% extends "school/timetable_workspace.html" %}
 {% load static %}
-{% block title %}Thời khóa biểu tuần {{ week.monday|date:"d/m/Y" }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'school/timetable-workbench.css' %}">{% include "school/timetable_menu_assets.html" %}{% endblock %}
-{% block body_class %}timetable-workbench-page{% endblock %}
-{% block content %}
+{% block workspace %}
+{% if week %}
 <script src="{% static 'school/timetable-board.js' %}" defer></script>
-{% include "school/timetable_toolbar.html" %}
 
 {% if can_edit and editor_open %}
 <section class="card lesson-editor" id="lesson-editor" aria-labelledby="lesson-editor-title">
@@ -18,6 +15,7 @@
       <div class="alert error" role="alert"><strong>Vị trí đề xuất có xung đột</strong><ul>{% for issue in move_errors %}<li>{{ issue }}</li>{% endfor %}</ul><p>Chọn ngày hoặc tiết khác trong biểu mẫu.</p></div>
     {% else %}<p class="alert info" role="status">Đây là vị trí đề xuất. Kiểm tra thông tin rồi bấm Lưu thay đổi để xác nhận.</p>{% endif %}
   {% endif %}
+  {% if selected_assignment %}<p class="hint">Đã điền lớp, môn, giáo viên và phòng theo phân công. Chọn ngày và tiết rồi lưu.</p>{% endif %}
   <form method="post" action="{{ screen_url }}">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ week.revision }}">
@@ -144,4 +142,5 @@
   {% endif %}
 {% endif %}
 
+{% endif %}
 {% endblock %}

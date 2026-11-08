@@ -1,8 +1,7 @@
-{% extends "school/base.html" %}
+{% extends "school/timetable_workspace.html" %}
 {% block title %}Kế hoạch giảng dạy{% endblock %}
-{% block extra_head %}{% include "school/timetable_menu_assets.html" %}{% endblock %}
-{% block content %}
-{% include "school/timetable_menu.html" %}
+{% block workspace %}
+<div class="workbench-planning">
 <header class="page-head">
   <a class="back" href="{% url 'week' week.pk %}">← Lưới thời khóa biểu</a>
   <span class="eyebrow">Thời khóa biểu lên lớp</span>
@@ -36,7 +35,7 @@
 
 {% if not plan %}
 <section class="card" id="phan-cong">
-  <span id="gioi-han-giao-vien"></span><span id="tiet-nghi-co-dinh"></span><span id="toi-uu-tkb"></span>
+  <span id="gioi-han-giao-vien"></span><span id="tiet-nghi-co-dinh"></span><span id="toi-uu-tkb"></span><span id="tinh-chinh-tkb"></span>
   <h2>Phân công giảng dạy</h2>
   <p id="rang-buoc">Tuần này chưa có khung học để nhập phân công và khai báo ràng buộc.</p>
   {% if week.state == "draft" %}<a class="button" id="xep-lich" href="#khung-hoc">Thiết lập khung học</a>{% endif %}
@@ -141,13 +140,14 @@
 
 <section class="card" aria-labelledby="solver-title" id="xep-lich">
   <h2 id="solver-title">4. Xếp lịch và kiểm tra phương án</h2>
+  <p class="hint">Xếp tự động giữ nguyên các tiết đã có. Khi chưa đủ, hệ thống có thể đưa ra phương án một phần để tiếp tục tinh chỉnh.</p>
   {% if diagnostics %}
     <details class="subsection"><summary>Các mục cần xử lý trên lịch hiện tại</summary><ul>{% for item in diagnostics %}<li>{{ item }}</li>{% endfor %}</ul></details>
   {% elif required %}<p class="hint">Lịch hiện tại đạt kiểm tra phân công và ràng buộc của tuần.</p>{% endif %}
   {% if week.state == "draft" %}
   <form method="post" action="#xep-lich" class="actions">
     {% csrf_token %}{% include "school/timetable_revision.html" %}
-    <button class="primary" name="action" value="solve"{% if not required %} disabled{% endif %}>Tạo phương án CP-SAT</button>
+    <button class="primary" name="action" value="solve"{% if not required %} disabled{% endif %}>Xếp thời khóa biểu tự động</button>
   </form>
   <div class="subsection" id="toi-uu-tkb">
     <h3>Tối ưu thời khóa biểu</h3>
@@ -160,13 +160,15 @@
   {% endif %}
   {% if result %}
     <div class="subsection" role="status">
-      <p><strong>Kết quả</strong> {{ result.status }} · {{ result.seconds|floatformat:2 }} giây.</p>
+      <p><strong>Kết quả</strong> {% if partial_proposal %}Xếp được một phần{% else %}{{ result.status }}{% endif %} · {{ result.seconds|floatformat:2 }} giây.</p>
       {% if result.day_spread_cost != None %}<p class="hint">Điểm dồn môn trong ngày {{ result.day_spread_cost }}. Điểm thấp hơn tương ứng ít tiết cùng môn vượt hai tiết/ngày.</p>{% endif %}
       {% if result.messages %}<ul>{% for item in result.messages %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
     </div>
   {% endif %}
   {% if proposal %}
   <h3>Xem trước {{ proposal|length }} tiết đề xuất</h3>
+  <p>Phương án có {{ proposal_placed }}/{{ required }} tiết theo phân công · Còn thiếu {{ proposal_missing }} tiết.</p>
+  {% if partial_proposal %}<p>Phương án sẽ lưu ở bản nháp. Tiếp tục <a href="#tinh-chinh-tkb">rà soát phần còn thiếu</a> để hoàn tất.</p>{% endif %}
   {% if optimization %}<p>Giữ nguyên {{ pinned_count }} tiết đã cố định. Thay vị trí {{ moved_count }} tiết hiện có. Số tiết trống giữa buổi của giáo viên {{ old_gaps }} → {{ new_gaps }}.</p>{% endif %}
   <div class="table-wrap" tabindex="0" role="region" aria-label="Các tiết do CP-SAT đề xuất">
     <table><thead><tr><th>Ngày</th><th>Tiết</th><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Phòng</th></tr></thead>
@@ -181,5 +183,52 @@
   </form>
   {% endif %}
 </section>
+<section class="card" id="tinh-chinh-tkb" aria-labelledby="refinement-title">
+  <h2 id="refinement-title">5. Tinh chỉnh các phân công chưa xếp xong</h2>
+  {% if placement_rows %}
+  <p>Còn thiếu {{ missing_periods }} tiết trong {{ placement_rows|length }} phân công cần rà soát. Chọn một dòng để xem khung giờ và ràng buộc liên quan.</p>
+  <form method="get" action="{% url 'timetable_plan' week.pk %}#tinh-chinh-tkb" class="form-row">
+    <label>Giáo viên chưa xếp xong
+      <select name="review_teacher"><option value="">Tất cả giáo viên</option>
+        {% for teacher_id, label in review_teachers %}<option value="{{ teacher_id }}"{% if teacher_id == review_teacher %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button>Lọc phân công</button>
+  </form>
+  <div class="table-wrap">
+    <table><thead><tr><th>Giáo viên</th><th>Lớp</th><th>Môn</th><th>Còn thiếu</th><th>Cặp tiết đôi còn thiếu</th><th>Thao tác</th></tr></thead>
+      <tbody>{% for assignment_id, item, missing, pairs in placement_rows %}
+      <tr><td>{{ item.teacher_label }}</td><td>{{ item.classroom }}</td><td>{{ item.subject }}</td><td>{{ missing }}</td><td>{{ pairs }}</td>
+        <td><a href="?review={{ assignment_id }}{% if review_teacher %}&amp;review_teacher={{ review_teacher }}{% endif %}#ra-soat-phan-cong">Rà soát</a></td></tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+  {% if review_assignment %}
+  {% with item=review_assignment.1 missing=review_assignment.2 assignment_id=review_assignment.0 %}
+  <div class="subsection" id="ra-soat-phan-cong">
+    <h3>{{ item.subject }} · Lớp {{ item.classroom }} · {{ item.teacher_label }}</h3>
+    {% if missing %}
+    <p>Có {{ review_slot_count }} vị trí cho một tiết trong buổi được phép trên lưới hiện tại.</p>
+    {% if review_blockers %}<ul>{% for reason, count in review_blockers %}<li>{{ reason }} · {{ count }} vị trí</li>{% endfor %}</ul>{% endif %}
+    {% if can_edit and review_choices %}
+    <p>Chọn ngày và tiết để mở biểu mẫu xếp tay đã điền sẵn phân công.</p>
+    <div class="actions">{% for day, period in review_choices %}<a href="{% url 'week' week.pk %}?requirement={{ assignment_id }}&amp;day={{ day|date:'Y-m-d' }}&amp;period={{ period }}#lesson-editor">{{ day|date:"d/m" }} · Tiết {{ period }}</a>{% endfor %}</div>
+    {% endif %}
+    {% else %}<p>Đã đủ số tiết. Cần điều chỉnh vị trí để đủ cặp tiết đôi.</p>{% endif %}
+    <p><a href="#rang-buoc">Giờ giáo viên bận</a> · <a href="#gioi-han-giao-vien">Giới hạn dạy</a> · <a href="#tiet-nghi-co-dinh">Tiết nghỉ cố định</a> · <a href="{% url 'week' week.pk %}">Mở lưới để điều chỉnh</a></p>
+  </div>
+  {% endwith %}
+  {% endif %}
+  {% if can_edit %}
+  <form method="post" action="{% url 'timetable_plan' week.pk %}#xep-lich" class="actions">
+    {% csrf_token %}{% include "school/timetable_revision.html" %}
+    <button name="action" value="optimize">Thử xếp nâng cao</button>
+    <span class="hint">Thử sắp xếp lại các tiết chưa cố định để tìm phương án đủ tiết.</span>
+  </form>
+  {% endif %}
+  {% elif required %}<p>Đã xếp đủ số tiết và cặp tiết đôi theo phân công.</p>
+  {% else %}<p>Hãy nhập bảng phân công trước khi xếp lịch.</p>{% endif %}
+</section>
 {% endif %}
+</div>
 {% endblock %}

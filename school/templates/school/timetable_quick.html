@@ -25,8 +25,10 @@
           <div><dt>Tiết đang hiển thị</dt><dd>{{ lessons|length }}</dd></div>
           <div><dt>Tiết còn thiếu</dt><dd>{{ missing_count|default_if_none:"—" }}</dd></div>
         </dl>
-        {% if remaining_rows %}<details><summary>Phân công chưa đủ tiết</summary><ul>{% for classroom, subject, teacher, missing in remaining_rows %}
-          <li>{{ classroom }} · {{ subject }} · {{ teacher }} · còn {{ missing }} tiết</li>{% endfor %}</ul></details>{% endif %}
+        {% if remaining_rows %}<details><summary>Phân công chưa đủ tiết</summary><ul>{% for classroom, subject, teacher, missing, assignment_id in remaining_rows %}
+          <li>{{ classroom }} · {{ subject }} · {{ teacher }} · còn {{ missing }} tiết
+            {% if can_edit %}<a href="{% url 'timetable_plan' week.pk %}?review={{ assignment_id }}#tinh-chinh-tkb">Rà soát</a>{% endif %}
+          </li>{% endfor %}</ul></details>{% endif %}
       </section>
       <section id="huong-dan-tkb" data-quick-section="help">
         <h3>Trợ giúp</h3><p class="hint">Chọn lớp, giáo viên hoặc phòng ở bên trái để lọc lưới chính. Ba lưới bên dưới có bộ lọc riêng.</p>

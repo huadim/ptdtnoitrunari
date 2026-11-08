@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import date, timedelta
 from io import BytesIO
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -43,6 +44,15 @@ class SolverTests(SimpleTestCase):
         result = solve(problem)
         self.assertEqual(result.status, "INFEASIBLE")
         self.assertIn("H11", " ".join(result.messages))
+
+    def test_partial_solver_respects_double_periods_and_schedules_other_assignments(self):
+        items = (Requirement(1, "A", "8A", "Văn", "P01", 2, 1),
+                 Requirement(2, "B", "8B", "Toán", "P02", 1))
+        problem = self.problem(items, days=(0,), morning=1, afternoon=1)
+        result = solve(problem, allow_partial=True)
+        self.assertEqual(result.status, "PARTIAL")
+        self.assertEqual([entry.subject for entry in result.entries], ["Toán"])
+        self.assertFalse(validate(problem, result.entries))
 
     def test_resource_capacity_and_technical_timeout_are_distinct(self):
         items = (Requirement(1, "A", "7A", "Toán", "P01", 2),
@@ -105,6 +115,74 @@ class TeachingPlanTests(TestCase):
         self.login(self.office)
         self.plan_url = reverse("timetable_plan", args=[self.week.pk])
         self.week_url = reverse("week", args=[self.week.pk])
+
+    def test_timetable_entry_opens_full_screen_and_picker_keeps_week_permissions(self):
+        previous = TimetableWeek.objects.create(school=self.school, monday=self.monday - timedelta(days=7),
+                                                academic_year="2026–2027", state=State.PUBLISHED)
+        published_url = reverse("week", args=[previous.pk])
+        entry_url = reverse("timetable")
+        with patch("school.timetable.localdate", return_value=self.monday):
+            opened = self.client.get(entry_url, follow=True)
+            self.assertRedirects(opened, self.week_url)
+            self.assertContains(opened, "timetable-workbench-page")
+            self.assertContains(opened, "data-timetable-workbench")
+            self.assertNotContains(opened, 'class="sidebar"')
+            self.assertNotContains(opened, 'id="chon-tuan"')
+            self.assertContains(opened, f"{self.week_url}?weeks=1#chon-tuan")
+            picker = self.client.get(f"{self.week_url}?weeks=1")
+            self.assertContains(picker, 'id="chon-tuan"')
+            self.assertContains(picker, f'href="{published_url}"')
+            self.assertContains(picker, 'name="action" value="create_week"')
+            invalid = self.client.post(self.week_url, {"action": "create_week", "monday": "2026-11-10",
+                                                       "academic_year": "2026–2027"})
+            self.assertContains(invalid, "Chọn ngày thứ Hai.")
+            self.assertContains(invalid, "data-timetable-workbench")
+            new = self.client.post(self.week_url, {"action": "create_week", "monday": "2026-11-16",
+                                                   "academic_year": "2026–2027"})
+            created = TimetableWeek.objects.get(school=self.school, monday=date(2026, 11, 16))
+            self.assertRedirects(new, reverse("week", args=[created.pk]))
+            self.login(self.teacher)
+            self.assertRedirects(self.client.get(entry_url), published_url)
+            picker = self.client.get(f"{published_url}?weeks=1")
+            self.assertNotContains(picker, f'href="{self.week_url}"')
+            self.assertNotContains(picker, 'name="action" value="create_week"')
+            self.assertEqual(self.client.post(published_url, {"action": "create_week"}).status_code, 403)
+
+    def test_partial_proposal_and_refinement_workflow(self):
+        plan = TimetablePlan.objects.create(week=self.week, days="0", morning=2, afternoon=0)
+        TeachingRequirement.objects.create(plan=plan, teacher=self.teacher, classroom="7A", subject="Toán",
+                                           room="P01", periods=2)
+        blocked = TeachingRequirement.objects.create(plan=plan, teacher=self.office, classroom="7B", subject="Tin",
+                                                     room="P02", periods=1)
+        pinned = Lesson.objects.create(week=self.week, teacher=self.teacher, classroom="7A", subject="Toán",
+                                       room="P01", date=self.monday, period=1, pinned=True)
+        unavailable = plan.unavailable.create(teacher=self.office, date=self.monday, first=1, last=2)
+        preview = self.client.post(self.plan_url, {"action": "solve"})
+        self.assertContains(preview, "Xếp được một phần")
+        self.assertContains(preview, "Còn thiếu 1 tiết")
+        self.assertEqual(self.week.lesson_set.count(), 1)
+        applied = self.client.post(self.plan_url, {"action": "apply_solve", "token": preview.context["solve_token"]})
+        self.assertRedirects(applied, self.week_url)
+        self.assertEqual(self.week.lesson_set.count(), 2)
+        self.assertTrue(self.week.lesson_set.filter(pk=pinned.pk, pinned=True, period=1).exists())
+        self.client.post(self.week_url, {"action": "submit"})
+        self.week.refresh_from_db()
+        self.assertEqual(self.week.state, State.DRAFT)
+        review = self.client.get(self.plan_url, {"review": blocked.pk, "review_teacher": self.office.pk})
+        self.assertContains(review, "Giáo viên bận hoặc nghỉ")
+        self.assertNotContains(review, 'class="sidebar"')
+        self.assertEqual(review.context["review_slot_count"], 0)
+        unavailable.delete()
+        review = self.client.get(self.plan_url, {"review": blocked.pk})
+        self.assertEqual(review.context["review_slot_count"], 2)
+        editor = self.client.get(self.week_url, {"requirement": blocked.pk, "day": self.monday.isoformat(), "period": 1})
+        self.assertContains(editor, "Đã điền lớp, môn, giáo viên và phòng")
+        self.assertEqual(editor.context["form"].initial["teacher"], self.office.pk)
+        self.assertEqual(editor.context["form"].initial["subject"], "Tin")
+        saved = self.client.post(self.week_url, {"action": "add", "teacher": self.office.pk, "classroom": "7B",
+                                                 "subject": "Tin", "room": "P02", "date": self.monday, "period": 1})
+        self.assertRedirects(saved, self.week_url)
+        self.assertContains(self.client.get(self.plan_url), "Đã xếp đủ số tiết và cặp tiết đôi")
 
     def workbook(self, *rows):
         book = Workbook()

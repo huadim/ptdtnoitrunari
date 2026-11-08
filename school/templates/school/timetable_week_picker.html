@@ -1,0 +1,28 @@
+<section class="workbench-pane workbench-week-picker" id="chon-tuan" aria-labelledby="week-picker-title">
+  <div class="pane-title">
+    <h2 id="week-picker-title">Mở tuần học</h2>
+    {% if week %}<a href="{{ screen_url }}">Đóng</a>{% endif %}
+  </div>
+  <div class="week-picker-content{% if week_form %} can-create{% endif %}">
+    <div class="week-picker-list" aria-label="Danh sách tuần học">
+      {% for option in week_options %}
+      <a href="{% url 'week' option.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}"{% if option.pk == week.pk %} aria-current="page"{% endif %}>
+        <span>Tuần từ <time datetime="{{ option.monday|date:'Y-m-d' }}">{{ option.monday|date:"d/m/Y" }}</time> <small>· Năm học {{ option.academic_year }}</small></span>
+        <span class="badge {{ option.state }}">{{ option.get_state_display }}</span>
+      </a>
+      {% empty %}
+      <p class="hint">{% if week_form %}Chưa có tuần học. Hãy tạo tuần đầu tiên để bắt đầu.{% else %}Chưa có thời khóa biểu được công bố.{% endif %}</p>
+      {% endfor %}
+    </div>
+    {% if week_form %}
+    <div class="week-picker-create" id="tao-tuan">
+      <h3>Tạo tuần học</h3>
+      <form method="post" action="{% if week %}{{ screen_url }}{% else %}{% url 'timetable' %}{% endif %}">
+        {% csrf_token %}
+        {{ week_form.as_p }}
+        <button class="primary" name="action" value="create_week">Mở tuần học</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</section>

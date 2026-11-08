@@ -71,7 +71,7 @@ def schedule_board(request, rows, all_lessons, requirements, filters, choices, s
             planned += item.periods
             missing = item.periods - placed[item.teacher_id, item.classroom.casefold(), item.subject.casefold()]
             if missing > 0:
-                remaining.append((item.classroom, item.subject, item.teacher.name, missing))
+                remaining.append((item.classroom, item.subject, item.teacher.name, missing, item.pk))
 
     related = []
     if selected:
@@ -99,42 +99,76 @@ def schedule_board(request, rows, all_lessons, requirements, filters, choices, s
                            "class": lesson.classroom, "subject": lesson.subject, "room": lesson.room,
                            "teacher": lesson.teacher.code, "teacherName": lesson.teacher.name} for lesson in all_lessons]
     return {"board_scope": scope, "board_tabs": tabs, "resource_options": resource_options,
-            "planned_count": planned, "remaining_rows": remaining[:30], "missing_count": sum(item[-1] for item in remaining),
+            "planned_count": planned, "remaining_rows": remaining[:30],
+            "missing_count": sum(missing for _, _, _, missing, _ in remaining),
             "related": related, "selected_lesson": selected, "comparison_panels": comparison_panels,
             "comparison_lessons": comparison_lessons}
 
 
+def current_monday():
+    today = localdate()
+    return today - timedelta(days=today.weekday())
+
+
+def create_week(request):
+    require(request, "plan")
+    form = WeekForm(request.POST)
+    if not form.is_valid():
+        return None, form
+    week, created = TimetableWeek.objects.get_or_create(
+        school=request.school, monday=form.cleaned_data["monday"],
+        defaults={"academic_year": form.cleaned_data["academic_year"]},
+    )
+    if created:
+        record(request, "timetable.create", f"Tuần #{week.pk}")
+    return week, form
+
+
+def week_picker(request, week, form=None):
+    if form is None and request.rights["plan"]:
+        form = WeekForm(initial={"monday": current_monday(), "academic_year": week.academic_year if week else ""})
+    return {"show_week_picker": True, "week_options": visible_weeks(request).order_by("-monday")[:100],
+            "week_form": form}
+
+
 @school_view
 def timetable(request):
+    week_form = None
     if request.method == "POST":
-        require(request, "plan")
-        form = WeekForm(request.POST)
-        if form.is_valid():
-            week, created = TimetableWeek.objects.get_or_create(
-                school=request.school, monday=form.cleaned_data["monday"],
-                defaults={"academic_year": form.cleaned_data["academic_year"]},
-            )
-            if created:
-                record(request, "timetable.create", f"Tuần #{week.pk}")
-            return redirect("week", pk=week.pk)
-    else:
-        today = localdate()
-        form = WeekForm(initial={"monday": today - timedelta(days=today.weekday())})
-    weeks = list(visible_weeks(request).order_by("-monday")[:100])
-    return page(request, "timetable", weeks=weeks, menu_week=weeks[0] if weeks else None, week_form=form)
+        created_week, week_form = create_week(request)
+        if created_week is not None:
+            return redirect("week", pk=created_week.pk)
+
+    weeks = visible_weeks(request)
+    week = weeks.filter(monday__lte=current_monday()).order_by("-monday").first() or weeks.order_by("monday").first()
+    if week is None:
+        return page(request, "week", **week_picker(request, None, week_form))
+    if week_form is not None:
+        return render_week(request, week, week_form=week_form)
+    url = reverse("week", args=[week.pk])
+    return redirect(f"{url}?weeks=1" if request.GET.get("weeks") == "1" else url)
 
 
-@school_view
-def week_detail(request, pk):
-    week = get_week(request, pk)
-    can_edit = request.rights["plan"] and week.state == State.DRAFT
+def timetable_screen(request, week):
     filters = filter_values(request)
     list_view = request.GET.get("view") == "list"
     scope = request.GET.get("scope")
     grid_params = {**filters, **({"scope": scope} if scope in {"", "class", "teacher", "room"} else {})}
     screen_query = urlencode({**grid_params, **({"view": "list"} if list_view else {})})
-    week_url = reverse("week", args=[pk])
-    screen_url = f"{week_url}?{screen_query}" if screen_query else week_url
+    url = reverse("week", args=[week.pk])
+    return filters, list_view, scope, urlencode(grid_params), screen_query, f"{url}?{screen_query}" if screen_query else url
+
+
+@school_view
+def week_detail(request, pk):
+    week = get_week(request, pk)
+    if request.method == "POST" and request.POST.get("action") == "create_week":
+        created_week, week_form = create_week(request)
+        if created_week is not None:
+            return redirect("week", pk=created_week.pk)
+        return render_week(request, week, week_form=week_form)
+
+    can_edit = request.rights["plan"] and week.state == State.DRAFT
     form, edit_id = None, None
     if request.method == "POST":
         action = request.POST.get("action")
@@ -152,8 +186,15 @@ def week_detail(request, pk):
             else:
                 form.add_error(None, exc)
         if form is None or not form.errors:
+            *_, screen_url = timetable_screen(request, week)
             return redirect(screen_url)
 
+    return render_week(request, week, form=form, edit_id=edit_id)
+
+
+def render_week(request, week, *, form=None, edit_id=None, week_form=None):
+    can_edit = request.rights["plan"] and week.state == State.DRAFT
+    filters, list_view, scope, grid_query, screen_query, screen_url = timetable_screen(request, week)
     scoped = scoped_lessons(request, week)
     all_lessons = list(scoped)
     rows = list(filtered_lessons(scoped, filters)) if filters else all_lessons
@@ -188,6 +229,7 @@ def week_detail(request, pk):
 
     editor_open = form is not None
     move_preview, move_errors = False, []
+    selected_assignment = None
     if can_edit and form is None:
         teachers = employees(request)
         item = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("edit")), None)
@@ -208,22 +250,30 @@ def week_detail(request, pk):
                        "classroom": filters.get("class"), "room": filters.get("room")}
             if "teacher" in filters:
                 initial["teacher"] = teachers.filter(code__iexact=filters["teacher"]).values_list("pk", flat=True).first()
+            selected_assignment = next((row for row in (visible_requirements or ())
+                                        if str(row.pk) == request.GET.get("requirement")), None)
+            if selected_assignment:
+                initial.update(teacher=selected_assignment.teacher_id, classroom=selected_assignment.classroom,
+                               subject=selected_assignment.subject, room=selected_assignment.room)
         form = LessonForm(teachers=teachers, initial=initial)
-        editor_open = bool(item or "day" in request.GET or "add" in request.GET)
+        editor_open = bool(item or selected_assignment or "day" in request.GET or "add" in request.GET)
 
     weeks = visible_weeks(request)
     selected_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("focus")), None)
     show_sunday = bool(plan and "6" in plan.days) or any(lesson.date.weekday() == 6 for lesson in all_lessons)
     editor_pinned = any(str(lesson.pk) == str(edit_id) and lesson.pinned for lesson in all_lessons)
+    picker_url = f"{screen_url}{'&' if screen_query else '?'}weeks=1"
+    picker = week_picker(request, week, week_form) if week_form is not None or request.GET.get("weeks") == "1" else {}
     return page(request, "week", week=week, menu_week=week, on_board=True, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
                 last_day=days[-1],
                 lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open, editor_pinned=editor_pinned,
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),
                 next_week=weeks.filter(monday__gt=week.monday).order_by("monday").first(),
-                choices=choices, list_view=list_view, export_query=urlencode(filters), grid_query=urlencode(grid_params),
+                choices=choices, list_view=list_view, export_query=urlencode(filters), grid_query=grid_query,
                 screen_query=screen_query, screen_url=screen_url, today=localdate(), plan=plan,
                 morning_periods=plan.morning if plan else 5, show_sunday=show_sunday,
-                move_preview=move_preview, move_errors=move_errors,
+                move_preview=move_preview, move_errors=move_errors, week_picker_url=picker_url,
+                selected_assignment=selected_assignment, **picker,
                 **schedule_board(request, rows, all_lessons, visible_requirements, filters, choices, selected_lesson))
 
 

@@ -1,8 +1,9 @@
-{% with week=menu_week %}
+{% url 'timetable' as timetable_home %}
+{% with week=menu_week default_picker=timetable_home|add:"?weeks=1" %}
 <nav class="tkb-menubar" aria-label="Menu thời khóa biểu" data-tkb-menu>
   <details><summary>Hệ thống</summary><div class="tkb-popup">
-    {% if rights.plan %}<a href="{% url 'timetable' %}#tao-tuan" data-tkb-key="Ctrl+N">Tạo tuần học mới <kbd>Ctrl+N</kbd></a>{% endif %}
-    <a href="{% url 'timetable' %}" data-tkb-key="Ctrl+O">Mở tuần học <kbd>Ctrl+O</kbd></a>
+    {% if rights.plan %}<a href="{{ week_picker_url|default:default_picker }}#tao-tuan" data-tkb-key="Ctrl+N">Tạo tuần học mới <kbd>Ctrl+N</kbd></a>{% endif %}
+    <a href="{{ week_picker_url|default:default_picker }}#chon-tuan" data-tkb-key="Ctrl+O">Mở tuần học <kbd>Ctrl+O</kbd></a>
     <span aria-disabled="true">Sao lưu dữ liệu</span>
     <span aria-disabled="true">Sao lưu và mở dữ liệu</span>
     <span aria-disabled="true">Ghép nối dữ liệu</span>
@@ -92,7 +93,8 @@
     {% else %}<span aria-disabled="true">Soạn thảo TKB tự động</span>{% endif %}
     {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'timetable_plan' week.pk %}#toi-uu-tkb">Tối ưu TKB tự động sau khi xếp</a>
     {% else %}<span aria-disabled="true">Tối ưu TKB tự động sau khi xếp</span>{% endif %}
-    <span aria-disabled="true">Tinh chỉnh TKB tự động</span>
+    {% if week and rights.plan %}<a href="{% url 'timetable_plan' week.pk %}#tinh-chinh-tkb">Tinh chỉnh · Phân công chưa xếp xong</a>
+    {% else %}<span aria-disabled="true">Tinh chỉnh TKB tự động</span>{% endif %}
     {% if week.state == 'draft' and rights.plan or week and week.state != 'draft' and week.state != 'published' and rights.duty_approve %}
     <hr><a href="{% url 'week' week.pk %}#duyet-tkb">Duyệt và công bố</a>
     {% endif %}

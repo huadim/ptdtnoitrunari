@@ -235,7 +235,7 @@ def teacher_gap_terms(model, problem, choices):
     return gaps
 
 
-def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
+def solve(problem, *, seconds=MAX_SECONDS, preferred=None, allow_partial=False):
     from ortools.sat.python import cp_model
 
     start = monotonic()
@@ -295,7 +295,11 @@ def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
             used_per_day[item.classroom.casefold(), item.subject.casefold(), entry.day].append(selected)
             for resource in entry.resources:
                 candidates[resource, entry.day, entry.period].append(selected)
-        model.add(sum(entry_vars.values()) == missing)
+        added = sum(entry_vars.values())
+        if allow_partial:
+            model.add(added <= missing)
+        else:
+            model.add(added == missing)
 
         if missing_pairs:
             pairs = []
@@ -313,7 +317,17 @@ def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
                         model.add(pair <= entry_vars[slot])
             if len(pairs) < item.doubles:
                 errors.append(f"H11 · {item.label}: không đủ vị trí cho {item.doubles} cặp tiết cùng buổi.")
-            model.add(sum(pairs) >= item.doubles)
+            if allow_partial:
+                # Allow unfinished assignments while reserving their required consecutive periods.
+                current_pairs = item.doubles - missing_pairs
+                singles = max(item.periods - 2 * item.doubles, len(existing) - 2 * current_pairs)
+                model.add(len(existing) + added - 2 * sum(pairs) <= singles)
+                full = model.new_bool_var(f"full_{len(choices)}")
+                model.add(added == missing).only_enforce_if(full)
+                model.add(added < missing).only_enforce_if(full.Not())
+                model.add(sum(pairs) >= item.doubles).only_enforce_if(full)
+            else:
+                model.add(sum(pairs) >= item.doubles)
             for variables in pair_usage.values():
                 model.add_at_most_one(variables)
 
@@ -323,8 +337,9 @@ def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
             label = next((item.teacher_label for item in problem.requirements if item.teacher == value), value) \
                 if kind == "giáo viên" else value
             errors.append(f"H03–H06 · {kind.capitalize()} {label}: cần thêm {needed} tiết nhưng chỉ có {available} vị trí.")
-    if errors:
+    if errors and not allow_partial:
         return outcome("INFEASIBLE", messages=errors)
+    capacity_issues = errors
     if not any(item.periods > len(fixed_by_key[item.key]) for item in problem.requirements):
         errors = validate(problem, problem.fixed, complete=True)
         if errors:
@@ -353,6 +368,12 @@ def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
             if entry not in preferred:
                 moved.append(selected)
         quality = quality * (MAX_PERIODS + 1) + sum(moved)
+    if allow_partial:
+        # Placing one more period outranks all spread, gap and movement costs.
+        coverage_weight = MAX_PERIODS + 1
+        if preferred is not None:
+            coverage_weight *= 1 + 31 * MAX_PERIODS
+        quality -= coverage_weight * sum(selected for selected, _ in choices)
     model.minimize(quality)
 
     remaining_time = seconds - (monotonic() - start)
@@ -372,10 +393,65 @@ def solve(problem, *, seconds=MAX_SECONDS, preferred=None):
 
     proposed = tuple(entry for selected, entry in choices if solver.value(selected))
     all_entries = (*problem.fixed, *proposed)
-    errors = validate(problem, all_entries, complete=True)
+    errors = validate(problem, all_entries, complete=not allow_partial)
     if errors:
         return outcome("VALIDATION_ERROR", messages=errors)
+    if allow_partial and (missing_issues := validate(problem, all_entries, complete=True)):
+        if proposed:
+            return outcome("PARTIAL", proposed, messages=capacity_issues or missing_issues, cost=spread_cost(all_entries))
+        if status == cp_model.FEASIBLE:
+            return outcome("UNKNOWN", messages=("Chưa tìm được tiết phù hợp trong thời gian cho phép.",))
+        return outcome("INFEASIBLE", messages=capacity_issues or missing_issues)
     return outcome(solver.status_name(status), proposed, cost=spread_cost(all_entries))
+
+
+def unplaced_requirements(problem, entries):
+    grouped = defaultdict(list)
+    for entry in entries:
+        grouped[entry.key].append(entry)
+    rows = []
+    for item in problem.requirements:
+        assigned = grouped[item.key]
+        missing = max(0, item.periods - len(assigned))
+        pairs = max(0, item.doubles - problem.double_count(assigned))
+        if missing or pairs:
+            rows.append((item, missing, pairs))
+    return rows
+
+
+def review_slots(problem, item):
+    occupied = defaultdict(set)
+    for entry in problem.fixed:
+        occupied[entry.day, entry.period].update(entry.resources)
+    assigned = [entry for entry in problem.fixed if entry.key == item.key]
+    slots, blocked = [], Counter()
+    for day in problem.days:
+        for period in range(1, problem.morning + problem.afternoon + 1):
+            if item.session not in ("any", problem.session_at(period)):
+                continue
+            entry = Entry(item.teacher, item.classroom, item.subject, item.room, day, period)
+            reasons = []
+            if day in problem.holidays:
+                reasons.append("Ngày nghỉ chung")
+            if entry.teacher in problem.inactive:
+                reasons.append("Giáo viên đã ngừng hoạt động")
+            if (entry.teacher, day, period) in problem.unavailable:
+                reasons.append("Giáo viên bận hoặc nghỉ")
+            if problem.is_break(entry):
+                reasons.append("Tiết nghỉ cố định của lớp, môn hoặc phòng")
+            reasons.extend(f"Trùng {kind}" for kind, resource in entry.resources
+                           if (kind, resource) in occupied[day, period])
+            if not reasons and problem.teacher_limits:
+                if teacher_limit_errors(problem, (*problem.fixed, entry), problem.fixed):
+                    reasons.append("Vượt giới hạn ngày hoặc tiết dạy của giáo viên")
+            if not reasons and item.doubles and len(assigned) + 1 == item.periods:
+                if problem.double_count((*assigned, entry)) < item.doubles:
+                    reasons.append("Vị trí này chưa hoàn thành đủ cặp tiết đôi")
+            if reasons:
+                blocked.update(reasons)
+            else:
+                slots.append(entry)
+    return slots, blocked.most_common()
 
 
 def spread_cost(entries):

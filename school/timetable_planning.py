@@ -21,7 +21,7 @@ from .forms import date_field
 from .models import Decision, Employee, Holiday, Lesson, Request, State, TeachingBreak, TeachingRequirement, TimetablePlan
 from .timetable import get_week
 from .timetable_solver import (BREAK_FIELDS, DAY_NAMES, MAX_PERIODS, Entry, Problem, Requirement, TeacherLimit,
-                               solve, spread_cost, teacher_gap_cost, validate)
+                               review_slots, solve, spread_cost, teacher_gap_cost, unplaced_requirements, validate)
 
 EXCEL_HEADERS = ("Mã giáo viên", "Lớp", "Môn", "Phòng", "Số tiết", "Số cặp tiết đôi", "Buổi")
 SESSION_NAMES = {"sáng": "am", "chiều": "pm", "cả hai": "any", "": "any"}
@@ -279,12 +279,20 @@ def prepare_solve(request, week, plan, *, optimize=False):
     problem = problem_for(week, plan)
     fixed = tuple(entry for entry in problem.fixed if entry.pinned) if optimize else problem.fixed
     movable = frozenset(problem.fixed) - frozenset(fixed)
-    result = solve(replace(problem, fixed=fixed), preferred=movable if optimize else None)
+    search = replace(problem, fixed=fixed)
+    result = solve(search, preferred=movable if optimize else None)
+    if not optimize and result.status in {"INFEASIBLE", "UNKNOWN"}:
+        partial_result = solve(search, allow_partial=True)
+        elapsed = result.seconds + partial_result.seconds
+        result = replace(partial_result if partial_result.entries else result, seconds=elapsed)
     if not result.entries:
         return {"result": result}
-    context = {}
+    after = (*fixed, *result.entries)
+    partial = result.status == "PARTIAL"
+    remaining = unplaced_requirements(problem, after)
+    context = {"proposal_placed": len(after), "proposal_missing": sum(missing for _, missing, _ in remaining),
+               "partial_proposal": partial}
     if optimize:
-        after = (*fixed, *result.entries)
         old_gaps = teacher_gap_cost(problem, problem.fixed)
         new_gaps = teacher_gap_cost(problem, after)
         before_score = spread_cost(problem.fixed) + 2 * old_gaps
@@ -298,17 +306,18 @@ def prepare_solve(request, week, plan, *, optimize=False):
     purpose = "optimize" if optimize else "solve"
     return {**context, "result": result,
             "proposal": [(week.monday + timedelta(days=row.day), row, staff[row.teacher]) for row in rows],
-            "solve_token": sign(request, week, purpose, [fingerprint(week, problem), [asdict(row) for row in rows]])}
+            "solve_token": sign(request, week, purpose, [fingerprint(week, problem), [asdict(row) for row in rows], partial])}
 
 
 def apply_solve(request, week, plan, *, optimize=False):
-    original, rows = read_signed(request, week, "optimize" if optimize else "solve")
+    original, rows, *flags = read_signed(request, week, "optimize" if optimize else "solve")
+    partial = not optimize and flags == [True]
     problem = problem_for(week, plan)
     if original != fingerprint(week, problem):
         fail("Dữ liệu tuần đã thay đổi sau khi tạo phương án. Hãy chạy lại bộ xếp lịch.")
     proposed = tuple(Entry(**row) for row in rows)
     fixed = tuple(entry for entry in problem.fixed if entry.pinned) if optimize else problem.fixed
-    errors = validate(problem, (*fixed, *proposed), complete=True)
+    errors = validate(problem, (*fixed, *proposed), complete=not partial)
     if errors:
         raise ValidationError(errors[:20])
     new_entries = proposed
@@ -331,8 +340,29 @@ def apply_solve(request, week, plan, *, optimize=False):
         messages.success(request, "Đã áp dụng phương án tối ưu vào bản nháp.")
     else:
         record(request, "timetable.solve_apply", f"Tuần #{week.pk}, bổ sung {len(new_entries)} tiết sau khi xác nhận.")
-        messages.success(request, f"Đã đưa {len(new_entries)} tiết vào bản nháp.")
+        status = f"Đã đưa {len(new_entries)} tiết vào bản nháp."
+        messages.success(request, status + (" Còn mục cần xử lý trong phần Tinh chỉnh." if partial else ""))
     return redirect("week", pk=week.pk)
+
+
+def placement_review(request, week, problem, assignments):
+    ids = {(row.teacher_id, row.classroom.casefold(), row.subject.casefold()): row.pk for row in assignments}
+    rows = [(ids[item.key], item, missing, pairs) for item, missing, pairs in unplaced_requirements(problem, problem.fixed)]
+    teachers = {str(item.teacher): item.teacher_label for _, item, _, _ in rows}
+    teacher = request.GET.get("review_teacher", "")
+    if teacher not in teachers:
+        teacher = ""
+    if teacher:
+        rows = [row for row in rows if str(row[1].teacher) == teacher]
+    selected = next((row for row in rows if str(row[0]) == request.GET.get("review")), None)
+    context = {"placement_rows": rows, "missing_periods": sum(row[2] for row in rows),
+               "review_teacher": teacher, "review_teachers": sorted(teachers.items(), key=lambda item: item[1].casefold())}
+    if selected is not None:
+        _, item, missing, _ = selected
+        slots, blockers = review_slots(problem, item) if missing else ([], [])
+        context.update(review_assignment=selected, review_slot_count=len(slots), review_blockers=blockers,
+                       review_choices=[(week.monday + timedelta(days=entry.day), entry.period) for entry in slots[:12]])
+    return context
 
 
 def handle_plan_action(request, week, plan, teachers):
@@ -447,8 +477,11 @@ def timetable_plan(request, pk):
     initial = {"days": list(plan.days if plan else "01234"), "morning": plan.morning if plan else 5,
                "afternoon": plan.afternoon if plan else 0}
     problem = problem_for(week, plan) if plan else None
+    assignments = list(plan.requirements.select_related("teacher")) if plan else []
+    placement = placement_review(request, week, problem, assignments) if problem else {}
     return page(request, "timetable_plan", week=week, menu_week=week, plan=plan, plan_form=PlanForm(initial=initial),
-                requirements=plan.requirements.select_related("teacher") if plan else (),
+                can_edit=week.state == State.DRAFT, week_picker_url=f"{reverse('week', args=[week.pk])}?weeks=1",
+                requirements=assignments,
                 blocked=plan.unavailable.select_related("teacher") if plan else (),
                 breaks=plan.breaks.all() if plan else (),
                 teacher_limits=plan.teacher_limits.filter(teacher__school=week.school).select_related("teacher") if plan else (),
@@ -461,7 +494,8 @@ def timetable_plan(request, pk):
                 block_form=UnavailableForm(teachers=teachers, week=week, initial={"date": week.monday, "first": 1, "last": 15}),
                 required=sum(item.periods for item in problem.requirements) if problem else 0,
                 existing=len(problem.fixed) if problem else 0, edit=edit,
-                diagnostics=validate(problem, problem.fixed, complete=True)[:20] if problem else (), **context)
+                diagnostics=validate(problem, problem.fixed, complete=True)[:20] if problem else (),
+                **placement, **context)
 
 
 @school_view

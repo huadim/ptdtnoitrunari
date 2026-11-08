@@ -139,22 +139,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .duty-flow li { display: flex; gap: 7px; align-items: center; color: #264868; font-weight: 650; }
 .duty-flow li span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e0edfc; }
 .timetable-review { background: #f6fcf9; border-left-color: #287f6c; }
-.timetable-directory.with-creation { display: grid; grid-template-columns: minmax(230px, .75fr) minmax(0, 1.55fr); gap: 15px; align-items: start; }
-.week-create h2 { margin-top: 5px; }
-.week-create form { margin-top: 15px; gap: 12px; }
-.week-directory { display: grid; gap: 8px; margin-top: 14px; }
-.week-directory-item {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px;
-  padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); text-decoration: none;
-}
-.week-directory-item:hover { border-color: #9bb6d6; background: #f8fbff; }
-.week-directory-item time {
-  display: grid; place-items: center; min-width: 66px; padding: 5px 8px; border-radius: 7px; background: #eaf2fc;
-}
-.week-directory-item time small { font-size: .62rem; color: #315c86; font-weight: 750; }
-.week-directory-item time strong { color: #174e85; font-variant-numeric: tabular-nums; }
-.week-directory-label { display: grid; gap: 2px; overflow-wrap: anywhere; }
-.week-arrow { color: var(--brand); font-size: 1.15rem; }
 .lesson-editor { border-left: 4px solid #2770c2; scroll-margin-top: 12px; }
 .lesson-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; margin-block: 13px; }
 .lesson-fields label { margin-bottom: 4px; }
@@ -202,7 +186,6 @@ a.lesson-tile:hover { background: #dcecff; }
 
 @media (max-width: 1180px) {
   .grid-hint { display: block; }
-  .timetable-directory.with-creation { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 @media (max-width: 880px) {
   .shell { display: block; }
@@ -220,8 +203,6 @@ a.lesson-tile:hover { background: #dcecff; }
   .login-intro h1 { margin-top: 18px; }
   th, td { padding: 7px 8px; }
   .lesson-fields, .timetable-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .week-directory-item { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
-  .week-arrow { display: none; }
 }
 .invite-code { font-family: ui-monospace, monospace; letter-spacing: .015em; }
 .access-card { border-left: 3px solid #1c60b0; }

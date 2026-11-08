@@ -11,6 +11,7 @@
 <body class="{% block body_class %}{% endblock %}">
 <a class="skip" href="#main">Bỏ qua menu</a>
 <div class="shell">
+  {% block sidebar %}
   <aside class="sidebar">
     <a class="brand" href="{% url 'home' %}"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>QUẢN LÝ GIÁO VỤ</small></span></a>
     <div class="school-name">{{ school.name }}</div>
@@ -44,6 +45,7 @@
     {% endwith %}
     <div class="account"><strong>{{ member.employee.name }}</strong><small>{{ member.get_role_display }}</small><div class="account-links"><a href="{% url 'password' %}">Đổi mật khẩu</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="text-button">Đăng xuất</button></form></div></div>
   </aside>
+  {% endblock %}
   <main id="main">
     {% if messages %}<div class="alerts">{% for message in messages %}<div class="alert {{ message.tags }}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
     {% block content %}{% endblock %}

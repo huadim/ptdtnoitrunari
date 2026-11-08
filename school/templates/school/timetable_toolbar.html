@@ -11,14 +11,18 @@
 <header class="workbench-header">
   <div class="workbench-titlebar">
     <a href="{% url 'timetable' %}" class="workbench-brand">EDUSCHOOL <span>·</span> Thời khóa biểu lên lớp</a>
+    {% if week %}
     <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
     <span class="workbench-year">Năm học {{ week.academic_year }}</span>
     <span class="badge {{ week.state }}">{{ week.get_state_display }}</span>
+    {% else %}<h1>Chưa mở tuần học</h1>
+    {% endif %}
   </div>
   {% include "school/timetable_menu.html" %}
   <nav class="workbench-commands" aria-label="Lệnh nhanh thời khóa biểu">
-    <a href="{% url 'timetable' %}" title="Danh sách tuần học"><svg aria-hidden="true"><use href="#tb-folder"/></svg><span>Mở tuần</span></a>
-    {% if can_edit %}<a href="?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor"><svg aria-hidden="true"><use href="#tb-add"/></svg><span>Thêm tiết</span></a>{% endif %}
+    <a href="{{ week_picker_url|default:'?weeks=1' }}#chon-tuan" title="Danh sách tuần học"><svg aria-hidden="true"><use href="#tb-folder"/></svg><span>Mở tuần</span></a>
+    {% if week %}
+    {% if can_edit %}<a href="{% url 'week' week.pk %}?{% if screen_query %}{{ screen_query }}&amp;{% endif %}add=1#lesson-editor"><svg aria-hidden="true"><use href="#tb-add"/></svg><span>Thêm tiết</span></a>{% endif %}
     {% if rights.plan %}<a href="{% url 'timetable_plan' week.pk %}{% if plan %}#phan-cong{% endif %}"><svg aria-hidden="true"><use href="#tb-list"/></svg><span>Phân công</span></a>{% endif %}
     {% if can_edit and plan %}<a href="{% url 'timetable_plan' week.pk %}#xep-lich" class="command-solve"><svg aria-hidden="true"><use href="#tb-bolt"/></svg><span>Xếp tự động</span></a>{% endif %}
     <details><summary><svg aria-hidden="true"><use href="#tb-print"/></svg><span>In và xuất ▾</span></summary><div>
@@ -26,10 +30,11 @@
       <a href="{% url 'timetable_export' week.pk 'docx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Word</a>
       <a href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Excel</a>
     </div></details>
-    <div class="workbench-week-links">
+    {% if on_board %}<div class="workbench-week-links">
       {% if previous_week %}<a href="{% url 'week' previous_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}" aria-label="Tuần trước">←</a>{% endif %}
-      <a href="{% url 'timetable' %}" aria-label="Chọn tuần">{{ week.monday|date:"d/m" }} – {{ last_day|date:"d/m" }}</a>
+      <a href="{{ week_picker_url }}#chon-tuan" aria-label="Chọn tuần">{{ week.monday|date:"d/m" }} – {{ last_day|date:"d/m" }}</a>
       {% if next_week %}<a href="{% url 'week' next_week.pk %}{% if screen_query %}?{{ screen_query }}{% endif %}" aria-label="Tuần sau">→</a>{% endif %}
-    </div>
+    </div>{% endif %}
+    {% endif %}
   </nav>
 </header>
