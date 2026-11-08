@@ -14,7 +14,7 @@ from .access import employee_scope, record, require, school_view
 from .common import employees, fail, page
 from .exports import document
 from .forms import LessonForm, WeekForm
-from .models import Decision, Holiday, Lesson, Notification, Request, State, TimetablePlan, TimetableWeek
+from .models import Decision, Holiday, Lesson, Notification, Request, State, TeachingRequirement, TimetablePlan, TimetableWeek
 from .timetable_solver import DAY_NAMES
 
 HEADERS = ("Ngày", "Tiết", "Lớp", "Môn", "Giáo viên", "Phòng")
@@ -154,9 +154,32 @@ def timetable_screen(request, week):
     list_view = request.GET.get("view") == "list"
     scope = request.GET.get("scope")
     grid_params = {**filters, **({"scope": scope} if scope in {"", "class", "teacher", "room"} else {})}
-    screen_query = urlencode({**grid_params, **({"view": "list"} if list_view else {})})
+    screen_params = dict(grid_params)
+    if list_view:
+        screen_params["view"] = "list"
+        if request.GET.get("manage") in {"pin", "remove"}:
+            screen_params["manage"] = request.GET["manage"]
+    screen_query = urlencode(screen_params)
     url = reverse("week", args=[week.pk])
     return filters, list_view, scope, urlencode(grid_params), screen_query, f"{url}?{screen_query}" if screen_query else url
+
+
+def lesson_form(request, week, action):
+    data = request.POST
+    assignment = None
+    if action == "add_assignment":
+        assignment_id = data.get("assignment", "")
+        if assignment_id.isascii() and assignment_id.isdecimal() and len(assignment_id) <= 19:
+            assignment = TeachingRequirement.objects.filter(pk=assignment_id, plan__week=week,
+                                                            teacher__school=week.school).first()
+        if assignment:
+            data = data.copy()
+            data.update({"classroom": assignment.classroom, "subject": assignment.subject,
+                         "teacher": assignment.teacher_id, "room": assignment.room})
+    form = LessonForm(data, teachers=employees(request))
+    if action == "add_assignment" and not assignment:
+        form.add_error(None, "Phân công này không còn trong tuần học. Hãy chọn lại.")
+    return form
 
 
 @school_view
@@ -172,8 +195,8 @@ def week_detail(request, pk):
     form, edit_id = None, None
     if request.method == "POST":
         action = request.POST.get("action")
-        if can_edit and action in {"add", "edit"}:
-            form = LessonForm(request.POST, teachers=employees(request))
+        if can_edit and action in {"add", "add_assignment", "edit"}:
+            form = lesson_form(request, week, action)
             if action == "edit":
                 edit_id = request.POST.get("id", "0")
         try:
@@ -190,6 +213,34 @@ def week_detail(request, pk):
             return redirect(screen_url)
 
     return render_week(request, week, form=form, edit_id=edit_id)
+
+
+def slot_assignments(week, plan, assignments, filters, day, period, subject):
+    from .timetable_planning import problem_for
+    from .timetable_solver import review_slots, unplaced_requirements
+
+    problem = problem_for(week, plan)
+    remaining = {item.key: (item, missing) for item, missing, _ in unplaced_requirements(problem, problem.fixed) if missing}
+    slot = ((day - week.monday).days, period)
+    options, blockers = [], Counter()
+    if slot[0] not in problem.days or not problem.session_at(period):
+        return {"slot_options": options, "slot_blockers": ["Ngoài khung học của tuần."]}
+    for assignment in assignments:
+        values = {"class": assignment.classroom, "teacher": assignment.teacher.code, "room": assignment.room}
+        if any(values[key].casefold() != value.casefold() for key, value in filters.items()):
+            continue
+        if subject and assignment.subject.casefold() != subject.casefold():
+            continue
+        key = (assignment.teacher_id, assignment.classroom.casefold(), assignment.subject.casefold())
+        if key not in remaining:
+            continue
+        item, missing = remaining[key]
+        slots, reasons = review_slots(problem, item, slot=slot)
+        if slots:
+            options.append((assignment, missing))
+        else:
+            blockers.update(reason for reason, _ in reasons)
+    return {"slot_options": options, "slot_blockers": [reason for reason, _ in blockers.most_common(5)]}
 
 
 def render_week(request, week, *, form=None, edit_id=None, week_form=None):
@@ -230,7 +281,34 @@ def render_week(request, week, *, form=None, edit_id=None, week_form=None):
     editor_open = form is not None
     move_preview, move_errors = False, []
     selected_assignment = None
-    if can_edit and form is None:
+    manage = request.GET.get("manage", "")
+    if not list_view or manage not in {"pin", "remove"}:
+        manage = ""
+    slot_picker = {}
+    selecting_slot = can_edit and plan and (
+        request.method == "POST" and request.POST.get("action") == "add_assignment"
+        or request.method != "POST" and not request.GET.get("edit") and not request.GET.get("requirement")
+        and ("day" in request.GET or "add" in request.GET)
+    )
+    if selecting_slot:
+        if form is not None:
+            slot_day = form.data.get("date", "")
+            slot_period = form.data.get("period", "")
+            slot_subject = form.data.get("slot_subject", "").strip()
+        else:
+            default_day = next((day for day in days if str(day.weekday()) in plan.days), week.monday)
+            slot_day = request.GET.get("day", default_day.isoformat())
+            slot_period = request.GET.get("period", "1")
+            slot_subject = request.GET.get("slot_subject", "").strip()
+        day = next((day for day in days if day.isoformat() == slot_day), None)
+        period = int(slot_period) if slot_period in map(str, range(1, 16)) else None
+        slot_picker = {"show_slot_picker": True, "slot_day": day, "slot_period": period,
+                       "slot_subject": slot_subject, "slot_options": [], "slot_blockers": []}
+        if day and period:
+            slot_picker.update(slot_assignments(week, plan, visible_requirements, filters, day, period, slot_subject))
+        editor_open = True
+
+    if can_edit and form is None and not selecting_slot:
         teachers = employees(request)
         item = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("edit")), None)
         if item:
@@ -261,23 +339,24 @@ def render_week(request, week, *, form=None, edit_id=None, week_form=None):
     weeks = visible_weeks(request)
     selected_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == request.GET.get("focus")), None)
     show_sunday = bool(plan and "6" in plan.days) or any(lesson.date.weekday() == 6 for lesson in all_lessons)
-    editor_pinned = any(str(lesson.pk) == str(edit_id) and lesson.pinned for lesson in all_lessons)
+    edited_lesson = next((lesson for lesson in all_lessons if str(lesson.pk) == str(edit_id)), None)
     picker_url = f"{screen_url}{'&' if screen_query else '?'}weeks=1"
     picker = week_picker(request, week, week_form) if week_form is not None or request.GET.get("weeks") == "1" else {}
     return page(request, "week", week=week, menu_week=week, on_board=True, days=[(day, DAY_NAMES[day.weekday()]) for day in days], grid=grid,
                 last_day=days[-1],
-                lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open, editor_pinned=editor_pinned,
+                lessons=rows, can_edit=can_edit, form=form, edit_id=edit_id, editor_open=editor_open,
+                edited_lesson=edited_lesson, editor_pinned=bool(edited_lesson and edited_lesson.pinned),
                 previous_week=weeks.filter(monday__lt=week.monday).order_by("-monday").first(),
                 next_week=weeks.filter(monday__gt=week.monday).order_by("monday").first(),
                 choices=choices, list_view=list_view, export_query=urlencode(filters), grid_query=grid_query,
                 screen_query=screen_query, screen_url=screen_url, today=localdate(), plan=plan,
                 morning_periods=plan.morning if plan else 5, show_sunday=show_sunday,
                 move_preview=move_preview, move_errors=move_errors, week_picker_url=picker_url,
-                selected_assignment=selected_assignment, **picker,
+                selected_assignment=selected_assignment, manage=manage, **picker, **slot_picker,
                 **schedule_board(request, rows, all_lessons, visible_requirements, filters, choices, selected_lesson))
 
 
-def lesson_conflicts(request, week, data, item):
+def lesson_conflicts(request, week, data, item, *, complete_assignment=False):
     day, period, teacher = data["date"], data["period"], data["teacher"]
     if not 0 <= (day - week.monday).days < 7:
         return ["Ngày học phải thuộc tuần đang mở."]
@@ -297,7 +376,7 @@ def lesson_conflicts(request, week, data, item):
     plan = TimetablePlan.objects.filter(week=week).first()
     if plan:
         from .timetable_planning import problem_for, to_entry
-        from .timetable_solver import Entry, validate
+        from .timetable_solver import Entry, unplaced_requirements, validate
 
         problem = problem_for(week, plan)
         old_entry = to_entry(week, item) if item else None
@@ -306,12 +385,16 @@ def lesson_conflicts(request, week, data, item):
         baseline = set(validate(problem, problem.fixed))
         after = (*[entry for entry in problem.fixed if entry != old_entry], new_entry)
         errors.extend(issue for issue in validate(problem, after, previous=problem.fixed) if issue not in baseline)
+        if complete_assignment and not errors:
+            for requirement, missing, pairs in unplaced_requirements(problem, after):
+                if requirement.key == new_entry.key and not missing and pairs:
+                    errors.append(f"H11 · {requirement.label}: vị trí này chưa đủ {pairs} cặp tiết đôi.")
     return errors
 
 
 def change_week(request, week, form):
     action = request.POST.get("action")
-    if action in {"add", "edit", "remove", "pin", "unpin", "submit"}:
+    if action in {"add", "add_assignment", "edit", "remove", "pin", "unpin", "submit"}:
         require(request, "plan")
         if week.state != State.DRAFT:
             fail("Chỉ chỉnh sửa tuần ở trạng thái nháp.")
@@ -326,11 +409,11 @@ def change_week(request, week, form):
     item = get_object_or_404(rows, pk=request.POST.get("id", "0")) if action in {"edit", "remove", "pin", "unpin"} else None
     if item and item.pinned and action in {"edit", "remove"}:
         fail("Bỏ cố định tiết này trước khi sửa hoặc xóa.")
-    if action in {"add", "edit"}:
+    if action in {"add", "add_assignment", "edit"}:
         if not form.is_valid():
             return
         data = form.cleaned_data
-        if errors := lesson_conflicts(request, week, data, item):
+        if errors := lesson_conflicts(request, week, data, item, complete_assignment=action == "add_assignment"):
             raise ValidationError(errors)
         if item:
             rows.filter(pk=item.pk).update(**data)

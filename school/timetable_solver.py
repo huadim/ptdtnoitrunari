@@ -419,38 +419,45 @@ def unplaced_requirements(problem, entries):
     return rows
 
 
-def review_slots(problem, item):
+def review_slots(problem, item, *, slot=None):
+    if slot is not None:
+        day, period = slot
+        if day not in problem.days or not problem.session_at(period):
+            return [], [("Ngoài khung học của tuần", 1)]
+        if item.session not in ("any", problem.session_at(period)):
+            return [], [("Ngoài buổi học của phân công", 1)]
     occupied = defaultdict(set)
     for entry in problem.fixed:
         occupied[entry.day, entry.period].update(entry.resources)
     assigned = [entry for entry in problem.fixed if entry.key == item.key]
     slots, blocked = [], Counter()
-    for day in problem.days:
-        for period in range(1, problem.morning + problem.afternoon + 1):
-            if item.session not in ("any", problem.session_at(period)):
-                continue
-            entry = Entry(item.teacher, item.classroom, item.subject, item.room, day, period)
-            reasons = []
-            if day in problem.holidays:
-                reasons.append("Ngày nghỉ chung")
-            if entry.teacher in problem.inactive:
-                reasons.append("Giáo viên đã ngừng hoạt động")
-            if (entry.teacher, day, period) in problem.unavailable:
-                reasons.append("Giáo viên bận hoặc nghỉ")
-            if problem.is_break(entry):
-                reasons.append("Tiết nghỉ cố định của lớp, môn hoặc phòng")
-            reasons.extend(f"Trùng {kind}" for kind, resource in entry.resources
-                           if (kind, resource) in occupied[day, period])
-            if not reasons and problem.teacher_limits:
-                if teacher_limit_errors(problem, (*problem.fixed, entry), problem.fixed):
-                    reasons.append("Vượt giới hạn ngày hoặc tiết dạy của giáo viên")
-            if not reasons and item.doubles and len(assigned) + 1 == item.periods:
-                if problem.double_count((*assigned, entry)) < item.doubles:
-                    reasons.append("Vị trí này chưa hoàn thành đủ cặp tiết đôi")
-            if reasons:
-                blocked.update(reasons)
-            else:
-                slots.append(entry)
+    positions = (slot,) if slot is not None else (
+        (day, period) for day in problem.days for period in range(1, problem.morning + problem.afternoon + 1)
+        if item.session in ("any", problem.session_at(period))
+    )
+    for day, period in positions:
+        entry = Entry(item.teacher, item.classroom, item.subject, item.room, day, period)
+        reasons = []
+        if day in problem.holidays:
+            reasons.append("Ngày nghỉ chung")
+        if entry.teacher in problem.inactive:
+            reasons.append("Giáo viên đã ngừng hoạt động")
+        if (entry.teacher, day, period) in problem.unavailable:
+            reasons.append("Giáo viên bận hoặc nghỉ")
+        if problem.is_break(entry):
+            reasons.append("Tiết nghỉ cố định của lớp, môn hoặc phòng")
+        reasons.extend(f"Trùng {kind}" for kind, resource in entry.resources
+                       if (kind, resource) in occupied[day, period])
+        if not reasons and problem.teacher_limits:
+            if teacher_limit_errors(problem, (*problem.fixed, entry), problem.fixed):
+                reasons.append("Vượt giới hạn ngày hoặc tiết dạy của giáo viên")
+        if not reasons and item.doubles and len(assigned) + 1 == item.periods:
+            if problem.double_count((*assigned, entry)) < item.doubles:
+                reasons.append("Vị trí này chưa hoàn thành đủ cặp tiết đôi")
+        if reasons:
+            blocked.update(reasons)
+        else:
+            slots.append(entry)
     return slots, blocked.most_common()
 
 

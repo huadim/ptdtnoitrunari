@@ -1,0 +1,44 @@
+<section class="card lesson-editor" id="lesson-editor" aria-labelledby="lesson-editor-title">
+  <div class="card-head">
+    <div>
+      <span class="eyebrow">Xếp thời khóa biểu bằng tay</span>
+      <h2 id="lesson-editor-title">Chọn phân công cho ô lịch</h2>
+    </div>
+    <a href="{{ screen_url }}#board-title">Đóng</a>
+  </div>
+  {% if slot_day and slot_period %}<p><strong>{{ slot_day|date:"l, d/m/Y" }} · Tiết {{ slot_period }}</strong></p>{% endif %}
+  {% if form.errors %}
+    <div class="alert error" role="alert">
+      {{ form.non_field_errors }}
+      {% for field in form %}{% if field.errors %}<div>{{ field.label }}{{ field.errors }}</div>{% endif %}{% endfor %}
+    </div>
+  {% endif %}
+  {% if slot_options %}
+    <form method="post" action="{{ screen_url }}#lesson-editor" class="slot-assignment-form">
+      {% csrf_token %}
+      <input type="hidden" name="revision" value="{{ week.revision }}">
+      <input type="hidden" name="date" value="{{ slot_day|date:'Y-m-d' }}">
+      <input type="hidden" name="period" value="{{ slot_period }}">
+      <input type="hidden" name="slot_subject" value="{{ slot_subject }}">
+      <label for="slot-assignment">Phân công còn tiết chưa xếp</label>
+      <select id="slot-assignment" name="assignment" required>
+        <option value="">Chọn lớp, môn và giáo viên</option>
+        {% for assignment, missing in slot_options %}
+        <option value="{{ assignment.pk }}">Lớp {{ assignment.classroom }} · {{ assignment.subject }} · {{ assignment.teacher.name }} · Phòng {{ assignment.room }} · Còn {{ missing }} tiết</option>
+        {% endfor %}
+      </select>
+      <button class="primary" name="action" value="add_assignment">Lưu tiết học</button>
+    </form>
+  {% else %}
+    <p>{% if slot_day and slot_period %}Chưa có phân công phù hợp cho ô này trong phạm vi đang xem.{% else %}Hãy chọn một ngày và tiết hợp lệ trên lưới.{% endif %}</p>
+  {% endif %}
+  {% if slot_blockers %}
+    <p class="hint">Lý do một số phân công chưa thể xếp vào ô này:</p>
+    <ul>{% for reason in slot_blockers %}<li>{{ reason }}</li>{% endfor %}</ul>
+  {% endif %}
+  <div class="actions">
+    <a href="{% url 'timetable_plan' week.pk %}#phan-cong">Bảng phân công</a>
+    <a href="{% url 'timetable_plan' week.pk %}#tinh-chinh-tkb">Rà soát tiết chưa xếp</a>
+    <a href="{{ screen_url }}#board-title">Chọn ô khác</a>
+  </div>
+</section>

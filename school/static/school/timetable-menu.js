@@ -1,5 +1,5 @@
 for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
-  const menus = [...bar.children];
+  const menus = [...bar.querySelectorAll(":scope > details")];
   const close = (menu) => {
     menu.open = false;
     for (const child of menu.querySelectorAll("details[open]")) child.open = false;
@@ -17,7 +17,29 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
     const link = event.target.closest("a");
     if (!link) return;
     const menu = menus.find((item) => item.contains(link));
-    if (menu) close(menu);
+    if (menu) window.setTimeout(() => close(menu), 0);
+  });
+
+  bar.addEventListener("keydown", (event) => {
+    const trigger = event.target.closest("summary");
+    if (!trigger) return;
+    const menu = trigger.parentElement;
+    const index = menus.indexOf(menu);
+    if (index !== -1 && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      const offsets = {ArrowLeft: -1, ArrowRight: 1};
+      const next = event.key === "Home" ? menus[0] : event.key === "End" ? menus.at(-1)
+        : menus[(index + offsets[event.key] + menus.length) % menus.length];
+      const wasOpen = menu.open;
+      close(menu);
+      if (wasOpen) next.open = true;
+      next.querySelector("summary").focus();
+      event.preventDefault();
+    }
+    if (event.key === "ArrowDown") {
+      menu.open = true;
+      menu.querySelector(".tkb-popup :is(a, button, summary)")?.focus();
+      event.preventDefault();
+    }
   });
 
   document.addEventListener("click", (event) => {

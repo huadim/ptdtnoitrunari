@@ -10,6 +10,8 @@
 .timetable-workbench-page .shell main { max-width: none; padding: 0; }
 .timetable-workbench-page .alerts, .timetable-workbench-page .lesson-editor { margin: 8px; }
 .workbench-header, .workbench-pane { background: #fff; }
+.workbench-header { position: sticky; top: 0; z-index: 20; }
+html:has(.timetable-workbench-page) { scroll-padding-top: 7rem; }
 .workbench-header svg, .workbench-pane svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .workbench-titlebar, .workbench-commands {
   display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--bench-line);
@@ -37,6 +39,7 @@
 .workbench-commands { gap: 3px; padding-block: 3px; background: #f8fafc; }
 .workbench-commands svg { width: 20px; height: 20px; color: #2564a8; }
 .workbench-commands .command-solve svg { color: #b45f16; fill: #ffe0a5; }
+.workbench-read-only { padding: 3px 7px; color: #526379; }
 .workbench-week-links { display: flex; margin-left: auto; gap: 2px; border-left: 1px solid var(--bench-line); }
 .workbench-week-picker { margin: 4px; }
 .workbench-week-picker h2 { margin: 0; font-size: inherit; }
@@ -48,6 +51,9 @@
 .week-picker-create form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .week-picker-create form p { margin: 0; }
 .workbench-planning { padding: 12px; max-width: 1250px; margin: 0 auto; }
+.slot-assignment-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; margin: 10px 0; align-items: end; }
+.slot-assignment-form label { grid-column: 1 / -1; }
+.slot-assignment-form select { min-width: 0; }
 
 .timetable-workbench { padding: 4px; display: grid; gap: 4px; }
 .workbench-upper { display: grid; gap: 4px; grid-template-columns: minmax(135px, 12fr) minmax(0, 63fr) minmax(200px, 25fr); align-items: stretch; }
@@ -99,7 +105,9 @@
 .lesson-pin svg { width: 11px; height: 11px; }
 .main-pane .add-cell { min-height: 35px; border: 0; border-radius: 0; }
 .main-pane .add-cell.with-lessons { min-height: 19px; }
-.main-pane .add-cell:not(:hover, :focus-visible) span { opacity: .3; }
+.main-pane .add-cell, .comparison-table .add-cell { color: #2362a3; background: #f1f6fc; }
+.main-pane .add-cell:hover, .comparison-table .add-cell:hover { background: #dcecff; }
+.comparison-table .add-cell { min-height: 30px; border: 0; border-radius: 0; }
 .main-pane .empty-cell { min-height: 35px; }
 .timetable-workbench table .session-divider > * { border-bottom: 2px solid #5f86c1; }
 .timetable-workbench.hide-sunday [data-sunday] { display: none; }
@@ -137,9 +145,11 @@
   .quick-content { max-height: 220px; }
 }
 @media (max-width: 650px) {
+  html:has(.timetable-workbench-page) { scroll-padding-top: 10rem; }
   .workbench-titlebar h1 { margin-left: 0; }
   .workbench-week-links { margin-left: 0; }
   .week-picker-content.can-create { grid-template-columns: minmax(0, 1fr); }
+  .slot-assignment-form { grid-template-columns: minmax(0, 1fr); }
   .workbench-upper, .comparison-grid { grid-template-columns: minmax(0, 1fr); }
   .resource-pane { grid-template-columns: minmax(0, 1fr); }
   .workbench-resource-tabs, .quick-tabs { flex-direction: row; flex-wrap: wrap; border: 0; }

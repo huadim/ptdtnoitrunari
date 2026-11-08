@@ -30,6 +30,7 @@ if (workbench) {
   });
 
   const lessons = JSON.parse(document.getElementById("comparison-lessons").textContent);
+  const canEdit = workbench.hasAttribute("data-can-edit");
   for (const panel of workbench.querySelectorAll("[data-comparison]")) {
     const primaryKey = panel.dataset.comparison;
     const primary = panel.querySelector("[data-comparison-primary]");
@@ -41,8 +42,9 @@ if (workbench) {
       cells.forEach((cell) => cell.replaceChildren());
       const selected = primary.value.toLocaleLowerCase("vi");
       const filter = secondary.value.toLocaleLowerCase("vi");
-      const visible = lessons.filter((lesson) => lesson[primaryKey].toLocaleLowerCase("vi") === selected &&
-        (!filter || lesson[secondary.dataset.comparisonSecondary].toLocaleLowerCase("vi") === filter));
+      const scheduleLessons = lessons.filter((lesson) => lesson[primaryKey].toLocaleLowerCase("vi") === selected);
+      const visible = scheduleLessons.filter((lesson) => !filter ||
+        lesson[secondary.dataset.comparisonSecondary].toLocaleLowerCase("vi") === filter);
       for (const lesson of visible) {
         const cell = cells.get(`${lesson.day}:${lesson.period}`);
         if (!cell) continue;
@@ -59,6 +61,30 @@ if (workbench) {
         detail.textContent = primaryKey === "class" ? lesson.teacherName : lesson.class;
         link.append(subject, detail);
         cell.append(link);
+      }
+      if (canEdit && selected) {
+        const occupiedSlots = new Set(scheduleLessons.map((lesson) => `${lesson.day}:${lesson.period}`));
+        for (const [slot, cell] of cells) {
+          if (occupiedSlots.has(slot)) continue;
+          const [day, period] = slot.split(":");
+          const url = new URL(workbench.dataset.weekUrl, window.location.href);
+          url.search = "";
+          url.searchParams.set("scope", primaryKey);
+          url.searchParams.set(primaryKey, primary.value);
+          if (secondary.value) {
+            const key = secondary.dataset.comparisonSecondary === "subject" ? "slot_subject" : "class";
+            url.searchParams.set(key, secondary.value);
+          }
+          url.searchParams.set("day", day);
+          url.searchParams.set("period", period);
+          url.hash = "lesson-editor";
+          const link = document.createElement("a");
+          link.href = url.href;
+          link.className = "add-cell";
+          link.textContent = "+";
+          link.setAttribute("aria-label", `Thêm tiết ${period} ngày ${day}`);
+          cell.append(link);
+        }
       }
       status.textContent = selected ? `${visible.length} tiết trên lưới` : "Chọn đối tượng để xem lịch.";
     };

@@ -363,6 +363,52 @@ class TeachingPlanTests(TestCase):
         self.assertNotContains(public, "data-drag-lesson")
         self.assertIsNone(self.client.get(self.week_url, {"focus": unseen.pk}).context["selected_lesson"])
 
+    def test_grid_plus_lists_compatible_assignments_and_saves_selected_one(self):
+        plan = TimetablePlan.objects.create(week=self.week, days="0", morning=3, afternoon=1)
+        available = TeachingRequirement.objects.create(plan=plan, teacher=self.teacher, classroom="7A",
+                                                       subject="Toán", room="P1", periods=2, doubles=1)
+        blocked = TeachingRequirement.objects.create(plan=plan, teacher=self.office, classroom="7B",
+                                                     subject="Tin", room="P2", periods=1, session="pm")
+        Lesson.objects.create(week=self.week, teacher=self.teacher, classroom="7A", subject="Toán",
+                              room="P1", date=self.monday, period=1)
+        start = self.client.get(self.week_url)
+        self.assertContains(start, 'data-can-edit')
+        self.assertContains(start, f'{self.week_url}?day={self.monday}&amp;period=2#lesson-editor')
+        picker = self.client.get(self.week_url, {"day": self.monday, "period": 2, "class": "7A"})
+        self.assertContains(picker, "Chọn phân công cho ô lịch")
+        self.assertEqual(picker.context["slot_options"], [(available, 1)])
+        no_slot = self.client.get(self.week_url, {"day": self.monday, "period": 3, "class": "7A"})
+        self.assertContains(no_slot, "Vị trí này chưa hoàn thành đủ cặp tiết đôi")
+        self.assertNotContains(no_slot, 'value="add_assignment"')
+        payload = {"action": "add_assignment", "assignment": available.pk, "date": self.monday, "period": 3}
+        rejected = self.client.post(self.week_url, payload)
+        self.assertContains(rejected, "H11")
+        self.assertContains(rejected, "Chọn phân công cho ô lịch")
+        rejected = self.client.post(self.week_url, {**payload, "assignment": blocked.pk, "period": 2})
+        self.assertContains(rejected, "H08/H09")
+        self.assertEqual(self.week.lesson_set.count(), 1)
+        saved = self.client.post(self.week_url, {**payload, "period": 2, "classroom": "Sai", "room": "Sai"})
+        self.assertRedirects(saved, self.week_url)
+        self.assertTrue(self.week.lesson_set.filter(period=2, teacher=self.teacher, classroom="7A", room="P1").exists())
+        self.assertNotContains(self.client.get(self.week_url, {"day": self.monday, "period": 3, "class": "7A"}),
+                               'value="add_assignment"')
+
+    def test_pin_and_remove_menu_open_distinct_confirmation_actions(self):
+        lesson = Lesson.objects.create(week=self.week, teacher=self.teacher, classroom="7A", subject="Toán",
+                                       room="P1", date=self.monday, period=1)
+        for manage, title, label, action in (
+            ("pin", "Chọn tiết cần cố định", "Cố định hoặc bỏ cố định tiết học", "pin"),
+            ("remove", "Chọn tiết cần xóa", "Xác nhận xóa tiết học", "remove"),
+        ):
+            menu_path = f"{self.week_url}?view=list&amp;manage={manage}#board-title"
+            self.assertContains(self.client.get(self.week_url), menu_path)
+            board = self.client.get(self.week_url, {"view": "list", "manage": manage})
+            self.assertContains(board, title)
+            response = self.client.get(self.week_url, {"view": "list", "manage": manage, "edit": lesson.pk})
+            self.assertContains(response, label)
+            self.assertContains(response, f'name="action" value="{action}"')
+            self.assertTrue(self.week.lesson_set.filter(pk=lesson.pk, pinned=False).exists())
+
     @skipUnless(connection.vendor == "postgresql", "Kiểm tra trigger trên PostgreSQL")
     def test_database_rejects_a_teacher_from_another_school(self):
         plan = TimetablePlan.objects.create(week=self.week)

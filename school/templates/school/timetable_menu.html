@@ -78,9 +78,9 @@
     <span aria-disabled="true">Sao lưu và phục hồi phương án xếp TKB</span>
     <hr>
     {% if week and rights.plan and week.state == 'draft' %}
-    <a href="{% url 'week' week.pk %}?view=list#board-title">Xóa TKB · chọn tiết cần xóa</a>
+    <a href="{% url 'week' week.pk %}?view=list&amp;manage=remove#board-title">Xóa TKB · chọn tiết cần xóa</a>
     {% else %}<span aria-disabled="true">Xóa TKB</span>{% endif %}
-    {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'week' week.pk %}?view=list#board-title">Cố định TKB · chọn tiết</a>
+    {% if week and rights.plan and week.state == 'draft' %}<a href="{% url 'week' week.pk %}?view=list&amp;manage=pin#board-title">Cố định TKB · chọn tiết</a>
     {% else %}<span aria-disabled="true">Cố định TKB</span>{% endif %}
     <span aria-disabled="true">Tô màu TKB</span>
     <hr>
