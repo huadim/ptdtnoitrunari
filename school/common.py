@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest
@@ -7,6 +8,10 @@ from django.utils import timezone
 
 from .forms import MonthField
 from .models import Employee, MonthClose
+
+
+def timetable_context(request):
+    return {"timetable_only": settings.TIMETABLE_ONLY}
 
 
 def page(request, template, **context):

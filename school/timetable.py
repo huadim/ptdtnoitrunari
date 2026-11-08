@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Exists, OuterRef
@@ -11,10 +12,11 @@ from django.urls import reverse
 from django.utils.timezone import localdate
 
 from .access import employee_scope, record, require, school_view
-from .common import employees, fail, page
+from .common import employees, fail, page, post_form
 from .exports import document
-from .forms import LessonForm, WeekForm
-from .models import Decision, Holiday, Lesson, Notification, Request, State, TeachingRequirement, TimetablePlan, TimetableWeek
+from .forms import HolidayForm, LessonForm, WeekForm
+from .models import (Decision, Holiday, Lesson, Notification, Request, State, TeachingRequirement,
+                     TimetablePlan, TimetableProfile, TimetableWeek)
 from .timetable_solver import DAY_NAMES
 
 HEADERS = ("Ngày", "Tiết", "Lớp", "Môn", "Giáo viên", "Phòng")
@@ -132,6 +134,23 @@ def week_picker(request, week, form=None):
 
 
 @school_view
+def workspace_settings(request):
+    require(request, "settings")
+    holidays = Holiday.objects.filter(school=request.school)
+    form = HolidayForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and (data := post_form(request, form)):
+        holiday, created = Holiday.objects.get_or_create(school=request.school, date=data["date"],
+                                                        defaults={"label": data["label"]})
+        if created:
+            record(request, "timetable.holiday", f"Ngày nghỉ #{holiday.pk}: {holiday.date}")
+            messages.success(request, "Đã lưu ngày nghỉ của Thời khóa biểu.")
+        else:
+            messages.error(request, "Ngày này đã có trong danh sách ngày nghỉ.")
+        return redirect("configuration")
+    return page(request, "timetable_settings", holiday_form=form, holidays=holidays.order_by("-date")[:100])
+
+
+@school_view
 def timetable(request):
     week_form = None
     if request.method == "POST":
@@ -243,7 +262,7 @@ def slot_assignments(week, plan, assignments, filters, day, period, subject):
     return {"slot_options": options, "slot_blockers": [reason for reason, _ in blockers.most_common(5)]}
 
 
-def render_week(request, week, *, form=None, edit_id=None, week_form=None):
+def render_week(request, week, *, form=None, edit_id=None, week_form=None, **workspace_context):
     can_edit = request.rights["plan"] and week.state == State.DRAFT
     filters, list_view, scope, grid_query, screen_query, screen_url = timetable_screen(request, week)
     scoped = scoped_lessons(request, week)
@@ -352,7 +371,7 @@ def render_week(request, week, *, form=None, edit_id=None, week_form=None):
                 screen_query=screen_query, screen_url=screen_url, today=localdate(), plan=plan,
                 morning_periods=plan.morning if plan else 5, show_sunday=show_sunday,
                 move_preview=move_preview, move_errors=move_errors, week_picker_url=picker_url,
-                selected_assignment=selected_assignment, manage=manage, **picker, **slot_picker,
+                selected_assignment=selected_assignment, manage=manage, **picker, **slot_picker, **workspace_context,
                 **schedule_board(request, rows, all_lessons, visible_requirements, filters, choices, selected_lesson))
 
 
@@ -362,8 +381,9 @@ def lesson_conflicts(request, week, data, item, *, complete_assignment=False):
         return ["Ngày học phải thuộc tuần đang mở."]
     if Holiday.objects.filter(school=request.school, date=day).exists():
         return ["H09 · Ngày này đã được cấu hình là ngày lễ."]
-    if Request.objects.filter(employee=teacher, status=Decision.APPROVED, slot__isnull=True,
-                              start__lte=day, end__gte=day).exists():
+    if not settings.TIMETABLE_ONLY and Request.objects.filter(
+        employee=teacher, status=Decision.APPROVED, slot__isnull=True, start__lte=day, end__gte=day,
+    ).exists():
         return [f"H08 · {teacher.name} đã được duyệt nghỉ vào ngày này."]
     same = week.lesson_set.filter(date=day, period=period)
     if item:
@@ -440,10 +460,11 @@ def change_week(request, week, form):
                 date__in=Holiday.objects.filter(school=request.school).values("date")
             ).exists():
                 fail("Có tiết rơi vào ngày lễ hoặc có giáo viên đã ngừng hoạt động.")
-            unavailable = Request.objects.filter(employee=OuterRef("teacher"), status=Decision.APPROVED,
-                                                 slot__isnull=True, start__lte=OuterRef("date"), end__gte=OuterRef("date"))
-            if rows.filter(Exists(unavailable)).exists():
-                fail("Có tiết học trùng ngày nghỉ đã được duyệt của giáo viên.")
+            if not settings.TIMETABLE_ONLY:
+                unavailable = Request.objects.filter(employee=OuterRef("teacher"), status=Decision.APPROVED,
+                                                     slot__isnull=True, start__lte=OuterRef("date"), end__gte=OuterRef("date"))
+                if rows.filter(Exists(unavailable)).exists():
+                    fail("Có tiết học trùng ngày nghỉ đã được duyệt của giáo viên.")
             plan = TimetablePlan.objects.filter(week=week).first()
             if plan:
                 from .timetable_planning import problem_for
@@ -455,7 +476,7 @@ def change_week(request, week, form):
                     raise ValidationError(errors[:8])
         week.state = new
         week.save(update_fields=["state"])
-        if action == "publish":
+        if action == "publish" and not settings.TIMETABLE_ONLY:
             Notification.objects.bulk_create([
                 Notification(employee_id=teacher, text=f"Đã công bố thời khóa biểu tuần từ {week.monday:%d/%m/%Y}.")
                 for teacher in set(rows.values_list("teacher_id", flat=True))
@@ -474,6 +495,11 @@ def timetable_export(request, pk, format):
     week = get_week(request, pk)
     rows = [(row.date.strftime("%d/%m/%Y"), row.period, row.classroom, row.subject, row.teacher.name, row.room)
             for row in filtered_lessons(scoped_lessons(request, week), filter_values(request))]
-    return document(request, "THỜI KHÓA BIỂU", f"Năm học {week.academic_year} · Tuần từ {week.monday:%d/%m/%Y}"
-                    f" · {week.get_state_display()}", HEADERS, rows, f"thoi-khoa-bieu-{week.monday}", format,
-                    landscape=True)
+    profile = TimetableProfile.objects.filter(school=request.school).first()
+    subtitle = f"Năm học {week.academic_year} · Tuần từ {week.monday:%d/%m/%Y} · {week.get_state_display()}"
+    if profile or week.effective_date or week.semester != 1 or week.schedule_number != 1:
+        subtitle += f" · Học kỳ {week.semester} · TKB số {week.schedule_number}"
+        if week.effective_date:
+            subtitle += f" · Áp dụng từ {week.effective_date:%d/%m/%Y}"
+    return document(request, "THỜI KHÓA BIỂU", subtitle, HEADERS, rows, f"thoi-khoa-bieu-{week.monday}", format,
+                    landscape=True, school_name=profile.name if profile else None)

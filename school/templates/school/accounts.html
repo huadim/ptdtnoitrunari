@@ -26,10 +26,10 @@
 </tr>{% empty %}<tr><td colspan="5" class="empty">Không có nhân sự phù hợp. Bạn có thể thêm hồ sơ trước khi cấp tài khoản.</td></tr>{% endfor %}
 </tbody></table></div></section>
 <details class="card"><summary>Vai trò và phạm vi dữ liệu</summary><div class="table-wrap"><table><thead><tr><th>Vai trò</th><th>Phạm vi và nhiệm vụ</th></tr></thead><tbody>
-<tr><td>Hiệu trưởng</td><td>Quản lý nhà trường, cấp tài khoản, phân quyền, phê duyệt và khóa chấm công.</td></tr>
-<tr><td>Phó hiệu trưởng</td><td>Duyệt lịch hoặc khóa chấm công theo từng quyền được hiệu trưởng ủy quyền.</td></tr>
-<tr><td>Giáo vụ</td><td>Quản lý nhân sự, lập lịch, tổng hợp và xác nhận chấm công.</td></tr>
+<tr><td>Hiệu trưởng</td><td>{% if timetable_only %}Quản trị tài khoản, duyệt và công bố thời khóa biểu.{% else %}Quản lý nhà trường, cấp tài khoản, phân quyền, phê duyệt và khóa chấm công.{% endif %}</td></tr>
+<tr><td>Phó hiệu trưởng</td><td>{% if timetable_only %}Duyệt và công bố thời khóa biểu khi được ủy quyền.{% else %}Duyệt lịch hoặc khóa chấm công theo từng quyền được hiệu trưởng ủy quyền.{% endif %}</td></tr>
+<tr><td>Giáo vụ</td><td>{% if timetable_only %}Nhập dữ liệu giáo viên, lập phân công và xếp thời khóa biểu.{% else %}Quản lý nhân sự, lập lịch, tổng hợp và xác nhận chấm công.{% endif %}</td></tr>
 <tr><td>Tổ trưởng</td><td>Xem lịch và báo cáo thuộc tổ chuyên môn.</td></tr>
-<tr><td>Giáo viên</td><td>Xem lịch và chấm công cá nhân, gửi đề nghị nghỉ hoặc trực thay.</td></tr>
+<tr><td>Giáo viên</td><td>{% if timetable_only %}Xem thời khóa biểu cá nhân đã công bố.{% else %}Xem lịch và chấm công cá nhân, gửi đề nghị nghỉ hoặc trực thay.{% endif %}</td></tr>
 </tbody></table></div></details>
 {% endblock %}

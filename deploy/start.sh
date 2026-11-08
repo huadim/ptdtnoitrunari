@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-if [ "${1:-}" = "--bootstrap" ]; then
+if [ "${1:-}" = "--bootstrap" ] || [ "${TIMETABLE_ONLY:-}" = "1" ]; then
     sh deploy/render-release.sh
 fi
 

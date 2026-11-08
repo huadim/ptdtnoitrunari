@@ -1,0 +1,60 @@
+{% extends "school/timetable_catalog.html" %}
+{% block catalog %}
+<section class="workbench-pane tkb-catalog" aria-label="Danh sách khối học">
+  <svg class="sr-only" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="cat-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+    <symbol id="cat-file" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zM14 3v6h5M8 12l6 6m0-6-6 6"/></symbol>
+    <symbol id="cat-add" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></symbol>
+    <symbol id="cat-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L20 8l-4-4zM14 6l4 4"/></symbol>
+    <symbol id="cat-delete" viewBox="0 0 24 24"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></symbol>
+    <symbol id="cat-up" viewBox="0 0 24 24"><path d="M12 21V4m-6 6 6-6 6 6"/></symbol>
+    <symbol id="cat-down" viewBox="0 0 24 24"><path d="M12 3v17m-6-6 6 6 6-6"/></symbol>
+    <symbol id="cat-sort" viewBox="0 0 24 24"><path d="M3 5h11M3 9h9m-9 4h7m-7 4h5m10-12v15m-4-4 4 4 4-4"/></symbol>
+  </svg>
+  <form method="post" id="grade-actions" action="{% url 'timetable_grades' %}">{% csrf_token %}</form>
+  <nav class="tkb-catalog-tools" aria-label="Thao tác khối học">
+    <a href="{% url 'timetable' %}" aria-label="Về lưới thời khóa biểu" title="Về lưới thời khóa biểu"><svg aria-hidden="true"><use href="#cat-close"/></svg></a>
+    <details>
+      <summary title="Excel"><svg aria-hidden="true"><use href="#cat-file"/></svg><span>Excel</span></summary>
+      <div class="tkb-excel-tools">
+        <a class="button" href="{% url 'timetable_grade_template' %}">Tải mẫu Excel</a>
+        <form method="post" enctype="multipart/form-data" action="{% url 'timetable_grades' %}">
+          {% csrf_token %}{{ import_form.as_p }}
+          <button name="action" value="import">Nhập Excel</button>
+        </form>
+      </div>
+    </details>
+    <a href="?mode=add" aria-label="Thêm khối học" title="Thêm khối học"><svg aria-hidden="true"><use href="#cat-add"/></svg></a>
+    <button form="grade-actions" name="action" value="edit" aria-label="Sửa khối học đã chọn" title="Sửa khối học đã chọn"><svg aria-hidden="true"><use href="#cat-edit"/></svg></button>
+    <button form="grade-actions" name="action" value="confirm_delete" aria-label="Xóa khối học đã chọn" title="Xóa khối học đã chọn"><svg aria-hidden="true"><use href="#cat-delete"/></svg></button>
+    <button form="grade-actions" name="action" value="up" aria-label="Đưa lên" title="Đưa lên"><svg aria-hidden="true"><use href="#cat-up"/></svg></button>
+    <button form="grade-actions" name="action" value="down" aria-label="Đưa xuống" title="Đưa xuống"><svg aria-hidden="true"><use href="#cat-down"/></svg></button>
+    <button form="grade-actions" name="action" value="name" aria-label="Sắp xếp theo tên" title="Sắp xếp theo tên"><svg aria-hidden="true"><use href="#cat-sort"/></svg><span>Tên</span></button>
+    <button form="grade-actions" name="action" value="number" aria-label="Sắp xếp theo số khối" title="Sắp xếp theo số khối"><svg aria-hidden="true"><use href="#cat-sort"/></svg><span>Số khối</span></button>
+  </nav>
+  {% if mode == "add" or mode == "edit" and grade %}
+    <form method="post" action="{% url 'timetable_grades' %}" class="tkb-catalog-editor form-row">
+      {% csrf_token %}{% if grade %}<input type="hidden" name="grade" value="{{ grade.pk }}">{% endif %}
+      {{ grade_form.as_p }}
+      <button class="primary" name="action" value="save">Lưu khối học</button><a class="button" href="{% url 'timetable_grades' %}">Hủy</a>
+    </form>
+  {% elif mode == "delete" and grade %}
+    <form method="post" action="{% url 'timetable_grades' %}" class="tkb-catalog-editor actions">
+      {% csrf_token %}<input type="hidden" name="grade" value="{{ grade.pk }}">
+      <p>Xóa khối <strong>{{ grade.name }} · {{ grade.code }}</strong> khỏi danh mục?</p>
+      <button class="danger-button" name="action" value="delete">Xác nhận xóa</button><a class="button" href="{% url 'timetable_grades' %}">Hủy</a>
+    </form>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="tkb-catalog-table">
+      <thead><tr><th scope="col">TT</th><th scope="col">Tên khối học</th><th scope="col">Mã khối học</th><th scope="col">Số khối</th><th scope="col">Ghi chú</th></tr></thead>
+      <tbody>
+      {% for row in grades %}
+        <tr><td><input type="radio" name="grade" form="grade-actions" id="grade-{{ row.pk }}" value="{{ row.pk }}" aria-label="Chọn {{ row.name }}"{% if row == grade %} checked{% endif %}> {{ forloop.counter }}</td>
+          <td><label for="grade-{{ row.pk }}">{{ row.name }}</label></td><td>{{ row.code }}</td><td>{{ row.number }}</td><td>{{ row.notes }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="empty">Chưa có khối học. Bấm dấu + hoặc nhập danh sách từ Excel.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

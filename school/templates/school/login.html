@@ -1,7 +1,7 @@
 {% extends "school/auth_base.html" %}
 {% block title %}Đăng nhập{% endblock %}
 {% block form_content %}
-<div class="auth-form-heading"><span class="eyebrow">Chào mừng trở lại</span><h2>Đăng nhập vào trường</h2><p>Sử dụng tài khoản đã được nhà trường cấp quyền.</p></div>
+<div class="auth-form-heading"><span class="eyebrow">Chào mừng trở lại</span><h2>Đăng nhập {% if timetable_only %}Thời khóa biểu{% else %}vào trường{% endif %}</h2><p>{% if timetable_only %}Sử dụng tài khoản do quản trị viên Thời khóa biểu cấp.{% else %}Sử dụng tài khoản đã được nhà trường cấp quyền.{% endif %}</p></div>
 <form method="post" class="auth-form">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="auth-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}

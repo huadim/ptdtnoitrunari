@@ -1,18 +1,18 @@
 {% extends "school/base.html" %}
-{% block title %}Nhân sự{% endblock %}
+{% block title %}{% if timetable_only %}Giáo viên{% else %}Nhân sự{% endif %}{% endblock %}
 {% block content %}
-<header class="page-head"><span class="eyebrow">Danh mục nhà trường</span><h1>Hồ sơ nhân sự</h1><p>Quản lý mã nhân sự, tổ chuyên môn và tài khoản của trường.</p></header>
+<header class="page-head"><span class="eyebrow">{% if timetable_only %}Dữ liệu thời khóa biểu{% else %}Danh mục nhà trường{% endif %}</span><h1>Hồ sơ {% if timetable_only %}giáo viên{% else %}nhân sự{% endif %}</h1><p>{% if timetable_only %}Thêm hoặc nhập giáo viên để chọn trong bảng phân công giảng dạy.{% else %}Quản lý mã nhân sự, tổ chuyên môn và tài khoản của trường.{% endif %}</p></header>
 <div class="panels">
-<details class="card"><summary>Thêm nhân sự</summary><form method="post" class="stack">{% csrf_token %}{{ employee_form.as_p }}<button class="primary" name="action" value="create">Thêm hồ sơ</button></form></details>
-<details class="card" id="import-staff"{% if request.GET.import == "1" %} open{% endif %}><summary>Nhập từ Excel</summary><p>Dùng <a href="{% url 'staff_template' %}">mẫu Nhân sự EDUSCHOOL</a> hoặc mẫu giáo viên SmartScheduler 9 cột. Với mẫu SmartScheduler, hệ thống nhập Họ đệm, Tên và Mã GV.</p>
-<form method="post" class="stack" enctype="multipart/form-data">{% csrf_token %}{{ import_form.as_p }}<button class="primary" name="action" value="import">Nhập nhân sự</button></form></details>
+<details class="card"><summary>Thêm {% if timetable_only %}giáo viên{% else %}nhân sự{% endif %}</summary><form method="post" class="stack">{% csrf_token %}{{ employee_form.as_p }}<button class="primary" name="action" value="create">Thêm hồ sơ</button></form></details>
+<details class="card" id="import-staff"{% if request.GET.import == "1" %} open{% endif %}><summary>Nhập từ Excel</summary><p>Dùng <a href="{% url 'staff_template' %}">{% if timetable_only %}mẫu danh sách giáo viên{% else %}mẫu Nhân sự EDUSCHOOL{% endif %}</a> hoặc mẫu giáo viên SmartScheduler 9 cột. Với mẫu SmartScheduler, hệ thống nhập Họ đệm, Tên và Mã GV.</p>
+<form method="post" class="stack" enctype="multipart/form-data">{% csrf_token %}{{ import_form.as_p }}<button class="primary" name="action" value="import">Nhập {% if timetable_only %}giáo viên{% else %}nhân sự{% endif %}</button></form></details>
 </div>
-<section class="card"><h2>Danh sách nhân sự</h2><div class="table-wrap"><table><thead><tr><th>Mã</th><th>Họ và tên</th><th>Tổ chuyên môn</th><th>Tài khoản</th><th>Thao tác</th></tr></thead><tbody>
+<section class="card"><h2>Danh sách {% if timetable_only %}giáo viên{% else %}nhân sự{% endif %}</h2><div class="table-wrap"><table><thead><tr><th>Mã</th><th>Họ và tên</th><th>Tổ chuyên môn</th><th>Tài khoản</th><th>Thao tác</th></tr></thead><tbody>
 {% for employee in staff %}<tr><td>{{ employee.code }}</td><td><strong>{{ employee.name }}</strong>{% if not employee.active %}<small class="block">Đã ngừng hoạt động</small>{% endif %}</td><td>{{ employee.department|default:"—" }}</td>
 <td>{% if employee.membership %}{{ employee.membership.user.username }}<small class="block">{{ employee.membership.get_role_display }}</small>{% else %}Chưa cấp tài khoản{% endif %}</td>
 <td><div class="stack">
 <details><summary>Sửa hồ sơ</summary><form method="post" class="stack">{% csrf_token %}<input type="hidden" name="id" value="{{ employee.pk }}">
-<label>Mã nhân sự<input name="code" value="{{ employee.code }}" required maxlength="40"></label><label>Họ và tên<input name="name" value="{{ employee.name }}" required maxlength="120"></label>
+<label>Mã {% if timetable_only %}giáo viên{% else %}nhân sự{% endif %}<input name="code" value="{{ employee.code }}" required maxlength="40"></label><label>Họ và tên<input name="name" value="{{ employee.name }}" required maxlength="120"></label>
 <label>Tổ chuyên môn<input name="department" value="{{ employee.department }}" maxlength="100"></label><button name="action" value="edit">Lưu hồ sơ</button></form></details>
 {% if rights.settings %}
 <a href="{% url 'account_detail' employee.pk %}">Tài khoản và phân quyền</a>

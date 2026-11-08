@@ -16,12 +16,12 @@ MIME = {
 }
 
 
-def document(request, title, subtitle, headers, rows, filename, format, landscape=False, *, daily=False):
+def document(request, title, subtitle, headers, rows, filename, format, landscape=False, *, daily=False, school_name=None):
     if format not in MIME:
         raise Http404
     place = request.school.location
     stream = BytesIO()
-    args = (stream, request.school.name, title, subtitle, headers, rows, landscape, place)
+    args = (stream, school_name or request.school.name, title, subtitle, headers, rows, landscape, place)
     {"pdf": pdf, "docx": docx, "xlsx": xlsx}[format](*args, daily=daily)
     stream.seek(0)
     inline = format == "pdf" and request.GET.get("download") != "1"

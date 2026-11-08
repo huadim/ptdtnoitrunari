@@ -13,6 +13,26 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
     }
   }, true);
 
+  for (const submenu of bar.querySelectorAll("[data-tkb-flyout]")) {
+    const summary = submenu.querySelector("summary");
+    let openedByPointer = false;
+    submenu.addEventListener("pointerenter", (event) => {
+      if (event.pointerType !== "mouse" || !window.matchMedia("(min-width: 801px)").matches || submenu.open) return;
+      openedByPointer = true;
+      submenu.open = true;
+    });
+    submenu.addEventListener("pointerleave", () => {
+      if (openedByPointer && !submenu.contains(document.activeElement)) close(submenu);
+      openedByPointer = false;
+    });
+    summary.addEventListener("click", (event) => {
+      if (openedByPointer && submenu.open) {
+        event.preventDefault();
+        openedByPointer = false;
+      }
+    });
+  }
+
   bar.addEventListener("click", (event) => {
     const link = event.target.closest("a");
     if (!link) return;
@@ -21,6 +41,13 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
   });
 
   bar.addEventListener("keydown", (event) => {
+    const submenu = event.target.closest("[data-tkb-flyout]");
+    if (submenu && submenu.open && event.key === "ArrowLeft") {
+      close(submenu);
+      submenu.querySelector("summary").focus();
+      event.preventDefault();
+      return;
+    }
     const trigger = event.target.closest("summary");
     if (!trigger) return;
     const menu = trigger.parentElement;
@@ -35,9 +62,9 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
       next.querySelector("summary").focus();
       event.preventDefault();
     }
-    if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown" || submenu && event.key === "ArrowRight") {
       menu.open = true;
-      menu.querySelector(".tkb-popup :is(a, button, summary)")?.focus();
+      menu.querySelector(":scope > .tkb-popup :is(a, button, summary)")?.focus();
       event.preventDefault();
     }
   });
@@ -47,6 +74,7 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.target.closest?.("dialog[open]")) return;
     if (event.key === "Escape") {
       const open = bar.querySelector("details[open] details[open]") || menus.find((item) => item.open);
       if (open) {
@@ -64,6 +92,16 @@ for (const bar of document.querySelectorAll("[data-tkb-menu]")) {
       event.preventDefault();
       window.location.assign(link.href);
     }
+  });
+}
+
+for (const dialog of document.querySelectorAll("[data-tkb-info]")) {
+  if (!dialog.showModal) continue;
+  dialog.removeAttribute("open");
+  dialog.showModal();
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    window.location.assign(dialog.querySelector("[data-tkb-info-close]").href);
   });
 }
 

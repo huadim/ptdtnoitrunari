@@ -10,7 +10,7 @@
 </svg>
 <header class="workbench-header">
   <div class="workbench-titlebar">
-    <a href="{% url 'timetable' %}" class="workbench-brand">EDUSCHOOL <span>·</span> Thời khóa biểu lên lớp</a>
+    <a href="{% url 'timetable' %}" class="workbench-brand">{% if not timetable_only %}EDUSCHOOL <span>·</span> {% endif %}Thời khóa biểu lên lớp</a>
     {% if week %}
     <h1>Tuần từ {{ week.monday|date:"d/m/Y" }}</h1>
     <span class="workbench-year">Năm học {{ week.academic_year }}</span>

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import User
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -36,6 +37,11 @@ class EmployeeForm(forms.Form):
     name = forms.CharField(label="Họ và tên", max_length=120)
     department = forms.CharField(label="Tổ chuyên môn", max_length=100, required=False)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if settings.TIMETABLE_ONLY:
+            self.fields["code"].label = "Mã giáo viên"
+
 
 class ImportForm(forms.Form):
     workbook = forms.FileField(label="Tệp Excel (.xlsx)", widget=forms.FileInput(attrs={"accept": ".xlsx"}))
@@ -48,6 +54,13 @@ class AccountForm(forms.Form):
     approve_duty = forms.BooleanField(label="Ủy quyền duyệt và công bố lịch cho phó hiệu trưởng", required=False)
     approve_attendance = forms.BooleanField(label="Ủy quyền khóa chấm công cho phó hiệu trưởng", required=False)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if settings.TIMETABLE_ONLY:
+            self.fields["username"].label = "Tên đăng nhập"
+            self.fields["approve_duty"].label = "Ủy quyền duyệt và công bố thời khóa biểu"
+            del self.fields["approve_attendance"]
+
     def clean_password(self):
         password = self.cleaned_data["password"]
         from django.contrib.auth.models import User
@@ -59,6 +72,12 @@ class RoleForm(forms.Form):
     role = forms.ChoiceField(label="Vai trò", choices=[item for item in Role.choices if item[0] != Role.PRINCIPAL])
     approve_duty = forms.BooleanField(label="Duyệt và công bố lịch", required=False)
     approve_attendance = forms.BooleanField(label="Khóa và mở lại chấm công", required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if settings.TIMETABLE_ONLY:
+            self.fields["approve_duty"].label = "Duyệt và công bố thời khóa biểu"
+            del self.fields["approve_attendance"]
 
 
 class DutyTypeForm(forms.Form):

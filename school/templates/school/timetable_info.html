@@ -1,0 +1,28 @@
+<dialog open class="tkb-info-dialog" data-tkb-info aria-labelledby="tkb-info-title">
+  <header><h2 id="tkb-info-title">Thông tin chung</h2><a href="{{ info_back }}" data-tkb-info-close aria-label="Đóng thông tin chung">×</a></header>
+  <form method="post" action="{{ info_action }}">
+    {% csrf_token %}
+    <fieldset>
+      <legend>Thông tin trường học</legend>
+      {{ profile_form.non_field_errors }}
+      <div class="tkb-info-fields">
+      {% for field in profile_form %}{{ field.label_tag }}<div>{{ field }}{{ field.errors }}</div>{% endfor %}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Thời khóa biểu</legend>
+      {% if info_week_form %}
+        <input type="hidden" name="revision" value="{{ week.revision }}">
+        {{ info_week_form.non_field_errors }}
+        <div class="tkb-info-fields tkb-info-week-fields">
+        {% for field in info_week_form %}{{ field.label_tag }}<div>{{ field }}{{ field.errors }}</div>{% endfor %}
+        </div>
+      {% else %}
+        <p class="hint">Tạo tuần học để nhập năm học, học kỳ, ngày áp dụng và số thời khóa biểu.</p>
+      {% endif %}
+    </fieldset>
+    <footer class="actions">
+      <button class="primary">Chấp nhận</button><a class="button" href="{{ info_back }}">Hủy bỏ</a>
+    </footer>
+  </form>
+</dialog>

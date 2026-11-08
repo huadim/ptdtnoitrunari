@@ -11,4 +11,5 @@
 {% include "school/timetable_toolbar.html" %}
 {% if show_week_picker %}{% include "school/timetable_week_picker.html" %}{% endif %}
 {% block workspace %}{% endblock %}
+{% if profile_form %}{% include "school/timetable_info.html" %}{% endif %}
 {% endblock %}

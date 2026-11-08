@@ -2,6 +2,7 @@ from datetime import timedelta
 from hashlib import sha256
 from secrets import token_urlsafe
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -21,6 +22,8 @@ from .timetable import visible_weeks
 
 
 def delegation(data):
+    if settings.TIMETABLE_ONLY:
+        data["approve_attendance"] = False
     if data["role"] != Role.DEPUTY:
         data["approve_duty"] = data["approve_attendance"] = False
     return data
@@ -61,7 +64,7 @@ def account_action(request, employee, action):
             return None
         Membership.objects.filter(pk=member.pk).update(**delegation(data))
     elif action == "toggle":
-        if employee.active and Slot.objects.filter(
+        if not settings.TIMETABLE_ONLY and employee.active and Slot.objects.filter(
             assigned=employee, day__date__gte=localdate(), day__roster__state__in=[State.APPROVED, State.PUBLISHED],
         ).exists():
             fail("Nhân sự còn lịch trực đã duyệt. Hãy xử lý lịch trực thay trước.")
@@ -171,7 +174,6 @@ def register(request):
     if request.method == "POST":
         address = request.META.get("REMOTE_ADDR", "")
         # Registration uses the same trusted-proxy boundary as the sign-in endpoint.
-        from django.conf import settings
         if settings.SECURE_PROXY_SSL_HEADER:
             address = request.META.get("HTTP_X_FORWARDED_FOR", address).split(",")[0].strip()
         key = salted_hmac("school.registration", address, algorithm="sha256").hexdigest()

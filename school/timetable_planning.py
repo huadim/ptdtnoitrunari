@@ -8,6 +8,7 @@ from json import dumps
 from zipfile import BadZipFile, ZipFile
 
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -144,11 +145,12 @@ def problem_for(week, plan):
     unavailable = {(block.teacher_id, days[block.date], period)
                    for block in plan.unavailable.all() if block.date in days
                    for period in range(block.first, block.last + 1)}
-    leaves = Request.objects.filter(employee_id__in=people, employee__school=week.school, slot__isnull=True,
-                                    status=Decision.APPROVED, start__lte=max(days), end__gte=week.monday)
-    unavailable.update((leave.employee_id, index, period) for leave in leaves
-                       for day, index in days.items() if leave.start <= day <= leave.end
-                       for period in range(1, 16))
+    if not settings.TIMETABLE_ONLY:
+        leaves = Request.objects.filter(employee_id__in=people, employee__school=week.school, slot__isnull=True,
+                                        status=Decision.APPROVED, start__lte=max(days), end__gte=week.monday)
+        unavailable.update((leave.employee_id, index, period) for leave in leaves
+                           for day, index in days.items() if leave.start <= day <= leave.end
+                           for period in range(1, 16))
     holidays = Holiday.objects.filter(school=week.school, date__in=days).values_list("date", flat=True)
     active = set(Employee.objects.filter(school=week.school, active=True, pk__in=people).values_list("pk", flat=True))
     resource_breaks = frozenset((block.kind, block.resource.casefold(), days[block.date], period)

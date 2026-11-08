@@ -1,6 +1,7 @@
 from itertools import islice
 from zipfile import BadZipFile, ZipFile
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest
@@ -13,6 +14,7 @@ from .forms import DutyTypeForm, EligibleStaffForm, EmployeeForm, HolidayForm, I
 from .models import Audit, DutyType, Employee, Holiday, PayRate, Rate
 
 EMPLOYEE_HEADERS = ("mã nhân sự", "họ và tên", "tổ chuyên môn")
+TEACHER_HEADERS = ("mã giáo viên", *EMPLOYEE_HEADERS[1:])
 SMARTSCHEDULER_HEADERS = ("tt", "họ đệm", "tên", "mã gv", "mã gv 2",
                           "điện thoại di động", "email", "zalo uid", "ghi chú")
 
@@ -37,8 +39,8 @@ def employee_rows(upload):
             data = islice(sheet.iter_rows(min_row=1, min_col=1, max_col=9), 502)
             headers = tuple(str(cell.value or "").strip().casefold() for cell in next(data))
             smart = headers == SMARTSCHEDULER_HEADERS
-            if not smart and headers[:3] != EMPLOYEE_HEADERS:
-                fail("Hãy dùng mẫu Nhân sự EDUSCHOOL hoặc mẫu danh sách giáo viên SmartScheduler 9 cột.")
+            if not smart and headers[:3] not in (EMPLOYEE_HEADERS, TEACHER_HEADERS):
+                fail("Hãy dùng mẫu nhập hồ sơ hoặc mẫu danh sách giáo viên SmartScheduler 9 cột.")
             seen = set()
             result = []
             for index, cells in enumerate(data, 2):
@@ -81,8 +83,8 @@ def staff_template(request):
 
     book = Workbook()
     sheet = book.active
-    sheet.title = "Nhân sự"
-    sheet.append(["Mã nhân sự", "Họ và tên", "Tổ chuyên môn"])
+    sheet.title = "Giáo viên" if settings.TIMETABLE_ONLY else "Nhân sự"
+    sheet.append(["Mã giáo viên" if settings.TIMETABLE_ONLY else "Mã nhân sự", "Họ và tên", "Tổ chuyên môn"])
     for column in sheet[1]:
         column.font = Font(bold=True)
     for col in "ABC":
@@ -91,7 +93,8 @@ def staff_template(request):
     stream = BytesIO()
     book.save(stream)
     stream.seek(0)
-    return FileResponse(stream, as_attachment=True, filename="mau-nhap-nhan-su.xlsx",
+    return FileResponse(stream, as_attachment=True,
+                        filename="mau-nhap-giao-vien.xlsx" if settings.TIMETABLE_ONLY else "mau-nhap-nhan-su.xlsx",
                         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 

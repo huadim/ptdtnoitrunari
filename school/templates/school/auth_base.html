@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102844">
-  <title>{% block title %}Tài khoản{% endblock %} · EDUSCHOOL Manager</title>
+  <title>{% block title %}Tài khoản{% endblock %} · {% if timetable_only %}Thời khóa biểu{% else %}EDUSCHOOL Manager{% endif %}</title>
   <link rel="stylesheet" href="{% static 'school/app.css' %}">
   <link rel="stylesheet" href="{% static 'school/auth.css' %}">
   <script src="{% static 'school/auth.js' %}" defer></script>
@@ -13,11 +13,17 @@
 <body class="auth-page">
 <a class="skip" href="#auth-main">Đi tới biểu mẫu</a>
 <header class="auth-header">
-  <a class="brand" href="https://huadim.github.io/ptdtnoitrunari/"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>MANAGER</small></span></a>
+  {% if timetable_only %}<a class="brand" href="{% url 'login' %}"><span class="mark" aria-hidden="true">T</span><span>THỜI KHÓA BIỂU<small>LỊCH LÊN LỚP</small></span></a>
+  {% else %}<a class="brand" href="https://huadim.github.io/ptdtnoitrunari/"><span class="mark" aria-hidden="true">E</span><span>EDUSCHOOL<small>MANAGER</small></span></a>{% endif %}
   <a class="auth-help" href="#tro-giup">Trợ giúp tài khoản</a>
 </header>
 <main class="auth-layout" id="auth-main">
   <section class="auth-story" aria-labelledby="auth-story-title">
+    {% if timetable_only %}
+    <span class="auth-kicker">Ứng dụng thời khóa biểu</span>
+    <h1 id="auth-story-title">Thời khóa biểu lên lớp</h1>
+    <p>Nhập danh sách giáo viên và phân công giảng dạy, thiết lập ràng buộc, xếp lịch và in khổ A4.</p>
+    {% else %}
     <span class="auth-kicker">Nền tảng quản lý giáo vụ</span>
     <h1 id="auth-story-title">Kết nối nhà trường.<br>Đồng hành mỗi ngày.</h1>
     <p>Thời khóa biểu, lịch trực và chấm công trong cùng một hệ thống.</p>
@@ -26,6 +32,7 @@
       <div><span class="auth-step">02</span><div><strong>Phối hợp thuận tiện</strong><small>Giáo viên xem lịch, đề nghị nghỉ và trực thay.</small></div></div>
       <div><span class="auth-step">03</span><div><strong>Báo cáo theo quyền</strong><small>Hiệu trưởng tổng hợp, phê duyệt và in A4.</small></div></div>
     </div>
+    {% endif %}
     <div class="auth-story-footer"><span class="auth-dot" aria-hidden="true"></span>Quyền truy cập theo tài khoản và nhà trường</div>
   </section>
   <section class="auth-form-panel" aria-label="Tài khoản nhà trường">
@@ -41,6 +48,6 @@
     </details>
   </section>
 </main>
-<footer class="auth-footer">EDUSCHOOL Manager <span aria-hidden="true">·</span> Dành cho giáo viên, giáo vụ và ban giám hiệu</footer>
+<footer class="auth-footer">{% if timetable_only %}Thời khóa biểu{% else %}EDUSCHOOL Manager{% endif %} <span aria-hidden="true">·</span> Dành cho giáo viên, giáo vụ và ban giám hiệu</footer>
 </body>
 </html>

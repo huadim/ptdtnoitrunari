@@ -55,6 +55,61 @@ html:has(.timetable-workbench-page) { scroll-padding-top: 7rem; }
 .slot-assignment-form label { grid-column: 1 / -1; }
 .slot-assignment-form select { min-width: 0; }
 
+.tkb-info-dialog {
+  position: fixed; inset: 0; margin: auto; width: min(440px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px); padding: 0; overflow: auto;
+  border: 1px solid #bac3cf; color: #233247; background: #fff; z-index: 30;
+  box-shadow: 0 4px 12px #13243e3d, 0 0 0 100vmax #172e4433;
+}
+.tkb-info-dialog:modal { box-shadow: 0 4px 12px #13243e3d; }
+.tkb-info-dialog::backdrop { background: #172e4433; }
+.tkb-info-dialog header {
+  display: flex; justify-content: space-between; align-items: center; padding: 5px 10px;
+  border-bottom: 1px solid #cbd1db; background: #f7f9fc;
+}
+.tkb-info-dialog h2 { margin: 0; font-size: .93rem; }
+.tkb-info-dialog header a { font-size: 1.3rem; color: inherit; text-decoration: none; }
+.tkb-info-dialog form { padding: 8px 11px 10px; }
+.tkb-info-dialog fieldset { border: 0; border-top: 1px solid #cbd1db; margin: 0 0 8px; padding: 4px 0 0; min-width: 0; }
+.tkb-info-dialog legend { padding: 0 5px 0 0; font-weight: 700; }
+.tkb-info-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 7px; align-items: center; }
+.tkb-info-week-fields { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); }
+.tkb-info-fields label { margin: 0; font-size: .77rem; }
+.tkb-info-fields :is(input, select) { width: 100%; min-width: 0; min-height: 28px; padding: 3px 5px; border-radius: 2px; }
+.tkb-info-dialog footer { justify-content: flex-end; padding-top: 7px; border-top: 1px solid #cbd1db; }
+.tkb-info-dialog footer :is(button, a) { min-height: 28px; padding: 2px 8px; border-radius: 2px; }
+.tkb-catalog-page { background: #fff; }
+.tkb-catalog { border-inline: 0; }
+.tkb-catalog-tools {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 5px 8px; border-bottom: 1px solid var(--bench-line);
+}
+.tkb-catalog-tools > :is(a, button), .tkb-catalog-tools summary {
+  display: inline-flex; align-items: center; gap: 3px; min-height: 30px; padding: 4px 7px; margin: 0;
+  border: 1px solid transparent; border-radius: 2px; color: #265e95; background: #fff; text-decoration: none; font: inherit;
+}
+.tkb-catalog-tools a:first-child, .tkb-catalog-tools button[value="confirm_delete"] { color: #a23b37; }
+.tkb-catalog-tools a[href="?mode=add"], .tkb-catalog-tools summary { color: #19754f; }
+.tkb-catalog-tools :is(a, button, summary):hover { border-color: #b7ccea; background: #eef5ff; }
+.tkb-catalog-tools details { position: relative; }
+.tkb-excel-tools {
+  position: absolute; z-index: 5; min-width: min(270px, 80vw); padding: 8px;
+  background: #fff; border: 1px solid #bbc7d6; box-shadow: 0 3px 6px #0002;
+}
+.tkb-excel-tools input { width: 100%; }
+.tkb-catalog-editor { margin: 0; padding: 8px; background: #f3f6fa; border-bottom: 1px solid var(--bench-line); }
+.tkb-catalog .table-wrap { margin: 8px; }
+.tkb-catalog-table { table-layout: fixed; min-width: 480px; }
+.tkb-catalog-table :is(th, td) { height: 27px; padding: 3px 6px; border: 1px solid #cdd3db; text-align: center; }
+.tkb-catalog-table thead th { background: #f8fafc; }
+.tkb-catalog-table :is(th, td):first-child { width: 52px; }
+.tkb-catalog-table label { margin: 0; color: inherit; cursor: pointer; }
+.tkb-catalog-table input[type=radio] { width: auto; min-height: 0; margin: 0; vertical-align: middle; }
+.tkb-catalog-table tr:has(input:checked) { background: #e3efff; }
+.tkb-category-actions details { display: inline-block; margin-left: 8px; }
+@media (max-width: 420px) {
+  .tkb-info-week-fields { grid-template-columns: auto minmax(0, 1fr); }
+}
+
 .timetable-workbench { padding: 4px; display: grid; gap: 4px; }
 .workbench-upper { display: grid; gap: 4px; grid-template-columns: minmax(135px, 12fr) minmax(0, 63fr) minmax(200px, 25fr); align-items: stretch; }
 .workbench-pane { min-width: 0; border: 1px solid var(--bench-line); }

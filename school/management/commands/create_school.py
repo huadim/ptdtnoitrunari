@@ -1,6 +1,7 @@
 import os
 from getpass import getpass
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -32,6 +33,9 @@ class Command(BaseCommand):
         for value, size in ((username, 150), (slug, 50), (name, 180), (location, 100), (principal, 120)):
             if not value or len(value) > size:
                 raise CommandError("Một trường dữ liệu trống hoặc quá dài.")
+        if settings.TIMETABLE_ONLY and (slug != "timetable" or School.objects.exclude(slug=slug).exists()):
+            raise CommandError("Thời khóa biểu độc lập cần cơ sở dữ liệu riêng và mã khởi tạo timetable.")
+
         def already_created():
             return options["if_missing"] and Membership.objects.filter(
                 employee__school__slug=slug, user__username=username, role=Role.PRINCIPAL,
@@ -40,10 +44,11 @@ class Command(BaseCommand):
         if already_created():
             self.stdout.write("Trường và tài khoản hiệu trưởng đã được khởi tạo.")
             return
-        password = os.getenv("EDUSCHOOL_PRINCIPAL_PASSWORD")
+        password_variable = "TIMETABLE_ADMIN_PASSWORD" if settings.TIMETABLE_ONLY else "EDUSCHOOL_PRINCIPAL_PASSWORD"
+        password = os.getenv(password_variable)
         if not password:
             if options["if_missing"]:
-                raise CommandError("Cần đặt EDUSCHOOL_PRINCIPAL_PASSWORD cho lần triển khai đầu tiên.")
+                raise CommandError(f"Cần đặt {password_variable} cho lần triển khai đầu tiên.")
             password = getpass("Mật khẩu hiệu trưởng: ")
             if password != getpass("Nhập lại mật khẩu: "):
                 raise CommandError("Hai mật khẩu không khớp.")
@@ -63,7 +68,8 @@ class Command(BaseCommand):
                 employee = Employee.objects.create(school=school, code="HT", name=principal)
                 user = User.objects.create_user(username=username, password=password)
                 Membership.objects.create(user=user, employee=employee, role=Role.PRINCIPAL)
-                DutyType.objects.create(school=school, name="Trực nội trú")
+                if not settings.TIMETABLE_ONLY:
+                    DutyType.objects.create(school=school, name="Trực nội trú")
         except IntegrityError as exc:
             if already_created():
                 return

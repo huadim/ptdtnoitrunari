@@ -28,6 +28,26 @@ Chọn gói [Free của DockHosting](https://dockhosting.dev/pricing), có một
 5. Bấm **Deploy**. Khi trang lên, mở địa chỉ HTTPS của dự án, đăng nhập bằng email đã cấu hình rồi dùng **Tài khoản và phân quyền** để cấp tài khoản giáo viên.
 6. Sau khi đăng nhập được, xóa `EDUSCHOOL_PRINCIPAL_PASSWORD` khỏi biến môi trường. Giữ đúng tên đăng nhập đã dùng khi tạo trường để các lần khởi động sau nhận ra tài khoản hiện có.
 
+## Triển khai Thời khóa biểu độc lập
+
+Tạo dự án web riêng từ cùng mã nguồn và dùng Dockerfile ở thư mục gốc. Gắn cơ sở dữ liệu PostgreSQL mới dành cho Thời khóa biểu. Đặt các biến sau cho dự án mới.
+
+| Biến | Giá trị |
+|---|---|
+| `TIMETABLE_ONLY` | `1` để mở trực tiếp ứng dụng Thời khóa biểu. |
+| `TIMETABLE_DATABASE_URL` | Chuỗi kết nối PostgreSQL của cơ sở dữ liệu mới. |
+| `TIMETABLE_SECRET_KEY` | Khóa ngẫu nhiên riêng ít nhất 50 ký tự. |
+| `TIMETABLE_ADMIN_USERNAME` | Tên đăng nhập quản trị viên Thời khóa biểu. |
+| `TIMETABLE_ADMIN_PASSWORD` | Mật khẩu riêng ít nhất 12 ký tự, dùng cho lần khởi tạo. |
+| `TIMETABLE_SCHOOL_NAME`, `TIMETABLE_LOCATION` | Tên đơn vị và địa danh trên báo cáo in. |
+| `TIMETABLE_ADMIN_NAME` | Tên hiển thị của quản trị viên, tùy chọn. |
+| `DJANGO_ALLOWED_HOSTS`, `DJANGO_TRUSTED_ORIGINS` | Tên miền và địa chỉ HTTPS của ứng dụng mới. |
+| `DJANGO_TRUST_PROXY` | `1` nếu HTTPS do proxy của nhà cung cấp xử lý. |
+
+Start command `sh deploy/start.sh` tự cập nhật cơ sở dữ liệu và tạo quản trị viên khi khởi động. Mở đường dẫn gốc của ứng dụng, đăng nhập bằng tài khoản mới, rồi vào **Dữ liệu → Dữ liệu giáo viên** để thêm hoặc nhập danh sách Excel. Tạo tuần học và nhập bảng phân công trong tuần đó. Tên đăng nhập quản trị viên cần được giữ ổn định giữa các lần khởi động. Sau lần đầu, có thể xóa biến mật khẩu khởi tạo.
+
+Để chạy thử trên máy, đặt `DJANGO_DEBUG=1` và `TIMETABLE_ONLY=1`, chạy `sh deploy/render-release.sh` với các biến tài khoản khởi tạo, rồi chạy `python manage.py runserver`. Chế độ này tự dùng `timetable.sqlite3` nếu chưa cấu hình PostgreSQL. Kiểm tra luồng độc lập bằng `DJANGO_DEBUG=1 TIMETABLE_ONLY=1 python manage.py test school.test_timetable_standalone`.
+
 ## Xuất bản qua Render
 
 [![Triển khai EDUSCHOOL trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fhuadim%2Fptdtnoitrunari)

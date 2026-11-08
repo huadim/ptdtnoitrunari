@@ -1,0 +1,18 @@
+{% extends "school/base.html" %}
+{% block title %}Cấu hình thời khóa biểu{% endblock %}
+{% block content %}
+<header class="page-head">
+  <a class="back" href="{% url 'timetable' %}">← Thời khóa biểu</a>
+  <h1>Cấu hình thời khóa biểu</h1>
+  <p>{{ school.name }} · {{ school.location }}</p>
+</header>
+<section class="card" id="ngay-le">
+  <h2>Ngày nghỉ toàn trường</h2>
+  <p>Các ngày này được bỏ qua khi xếp lịch. Để khai báo giờ bận của từng giáo viên, mở phần Ràng buộc TKB trong tuần học.</p>
+  <form method="post" class="form-row">{% csrf_token %}{{ holiday_form.as_p }}<button class="primary">Thêm ngày nghỉ</button></form>
+  <ul>
+    {% for holiday in holidays %}<li>{{ holiday.date|date:"d/m/Y" }} · {{ holiday.label }}</li>
+    {% empty %}<li>Chưa có ngày nghỉ trong danh mục.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

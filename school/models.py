@@ -240,11 +240,52 @@ class TimetableWeek(models.Model):
     school = models.ForeignKey(School, on_delete=models.PROTECT)
     monday = models.DateField()
     academic_year = models.CharField(max_length=20)
+    semester = models.PositiveSmallIntegerField(choices=((1, "1"), (2, "2")), default=1)
+    effective_date = models.DateField(null=True, blank=True)
+    schedule_number = models.PositiveSmallIntegerField(default=1)
     state = models.CharField(max_length=12, choices=State, default=State.DRAFT)
     revision = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["school", "monday"], name="timetable_school_week")]
+
+
+class TimetableProfile(models.Model):
+    school = models.OneToOneField(School, on_delete=models.PROTECT)
+    name = models.CharField(max_length=180)
+    address = models.CharField(max_length=180, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    website = models.URLField(blank=True)
+
+
+class TeachingGrade(models.Model):
+    school = models.ForeignKey(School, on_delete=models.PROTECT)
+    name = models.CharField(max_length=80)
+    code = models.CharField(max_length=24)
+    number = models.PositiveSmallIntegerField()
+    notes = models.CharField(max_length=200, blank=True)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("position", "pk")
+        constraints = [models.UniqueConstraint(fields=("school", "code"), name="teaching_grade_school_code")]
+
+
+class TeachingTeacherCategory(models.Model):
+    class Kind(models.TextChoices):
+        GROUP = "nhom", "Danh sách nhóm giáo viên"
+        HOMEROOM = "chu-nhiem", "Danh sách giáo viên chủ nhiệm"
+        DUTY = "kiem-nhiem", "Danh sách giáo viên kiêm nhiệm"
+        LEAD = "to-truong", "Danh sách tổ trưởng chuyên môn"
+
+    teacher = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    kind = models.CharField(max_length=10, choices=Kind)
+    label = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ("label", "teacher__name", "pk")
+        constraints = [models.UniqueConstraint(fields=("teacher", "kind", "label"), name="teaching_teacher_category_once")]
 
 
 class Lesson(models.Model):

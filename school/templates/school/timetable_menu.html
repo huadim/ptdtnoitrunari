@@ -27,24 +27,36 @@
       <a href="{% url 'timetable_export' week.pk 'xlsx' %}{% if export_query %}?{{ export_query }}{% endif %}">Xuất Excel</a>
     </div></details>{% endif %}
     <hr>
-    <a href="{% url 'home' %}">Tổng quan nhà trường</a>
+    {% if not timetable_only %}<a href="{% url 'home' %}">Tổng quan nhà trường</a>{% endif %}
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Đăng xuất</button></form>
   </div></details>
   <details><summary>Dữ liệu</summary><div class="tkb-popup">
-    {% if rights.settings %}<a href="{% url 'configuration' %}">Thông tin chung</a>
-    {% else %}<a href="{% url 'timetable' %}">Thông tin chung về tuần học</a>{% endif %}
+    {% if rights.plan %}{% if week %}<a href="{% url 'timetable_week_info' week.pk %}">Thông tin chung</a>
+    {% else %}<a href="{% url 'timetable_info' %}">Thông tin chung</a>{% endif %}{% endif %}
     <hr>
-    <span aria-disabled="true">Dữ liệu khối học</span>
-    {% if week %}<a href="{% url 'week' week.pk %}?scope=class#board-title">Dữ liệu lớp học</a>
+    {% if rights.plan %}<a href="{% url 'timetable_grades' %}">Dữ liệu khối học</a>{% endif %}
+    {% if week %}<details data-tkb-flyout><summary>Dữ liệu lớp học</summary><div class="tkb-popup">
+      <a href="{% url 'week' week.pk %}?scope=class#board-title">Danh sách lớp học</a>
+    </div></details>
     {% else %}<span aria-disabled="true">Dữ liệu lớp học</span>{% endif %}
-    {% if rights.plan %}<details><summary>Dữ liệu giáo viên</summary><div class="tkb-popup">
-      <a href="{% url 'staff' %}">Danh sách nhân sự</a>
+    {% if rights.plan %}<details data-tkb-flyout><summary>Dữ liệu giáo viên</summary><div class="tkb-popup">
+      <a href="{% url 'staff' %}">Danh sách giáo viên</a>
+      <a href="{% url 'timetable_teacher_categories' 'nhom' %}">Danh sách nhóm giáo viên</a>
+      <hr>
+      <a href="{% url 'timetable_teacher_categories' 'chu-nhiem' %}">Danh sách giáo viên chủ nhiệm</a>
+      <a href="{% url 'timetable_teacher_categories' 'kiem-nhiem' %}">Danh sách giáo viên kiêm nhiệm</a>
+      <a href="{% url 'timetable_teacher_categories' 'to-truong' %}">Danh sách tổ trưởng chuyên môn</a>
+      <hr>
       <a href="{% url 'staff' %}?import=1#import-staff">Nhập danh sách từ Excel</a>
       {% if rights.settings %}<a href="{% url 'accounts' %}">Tài khoản và phân quyền</a>{% endif %}
     </div></details>
     {% elif week %}<a href="{% url 'week' week.pk %}?scope=teacher#board-title">Dữ liệu giáo viên</a>{% endif %}
-    {% if week %}<a href="{% url 'timetable_report' week.pk 'subjects' %}">Dữ liệu môn học</a>
-    <a href="{% url 'week' week.pk %}?scope=room#board-title">Dữ liệu phòng học</a>
+    {% if week %}<details data-tkb-flyout><summary>Dữ liệu môn học</summary><div class="tkb-popup">
+      <a href="{% url 'timetable_report' week.pk 'subjects' %}">Danh sách môn học</a>
+    </div></details>
+    <details data-tkb-flyout><summary>Dữ liệu phòng học</summary><div class="tkb-popup">
+      <a href="{% url 'week' week.pk %}?scope=room#board-title">Danh sách phòng học</a>
+    </div></details>
     {% else %}<span aria-disabled="true">Dữ liệu môn học</span><span aria-disabled="true">Dữ liệu phòng học</span>{% endif %}
     {% if rights.settings %}<a href="{% url 'configuration' %}#ngay-le">Dữ liệu ngoại lệ</a>
     {% else %}<span aria-disabled="true">Dữ liệu ngoại lệ</span>{% endif %}

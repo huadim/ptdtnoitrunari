@@ -14,7 +14,7 @@
 {% elif target_member %}
 <div class="panels">
 <section class="card"><h2>Phân quyền và ủy quyền</h2><form method="post" class="stack">{% csrf_token %}{{ role_form.as_p }}<p class="hint">Hai quyền ủy quyền chỉ áp dụng cho vai trò phó hiệu trưởng.</p><button class="primary" name="action" value="role">Lưu phân quyền</button></form></section>
-<section class="card"><h2>Trạng thái tài khoản</h2><p>Tạm khóa tài khoản sẽ ngắt quyền đăng nhập, còn hồ sơ nhân sự và lịch trực vẫn được lưu.</p><form method="post">{% csrf_token %}{% if target_member.user.is_active %}<button name="action" value="suspend">Tạm khóa tài khoản</button>{% else %}<button class="primary" name="action" value="restore">Mở lại tài khoản</button>{% endif %}</form></section>
+<section class="card"><h2>Trạng thái tài khoản</h2><p>Tạm khóa tài khoản sẽ ngắt quyền đăng nhập, còn {% if timetable_only %}hồ sơ giáo viên và thời khóa biểu{% else %}hồ sơ nhân sự và lịch trực{% endif %} vẫn được lưu.</p><form method="post">{% csrf_token %}{% if target_member.user.is_active %}<button name="action" value="suspend">Tạm khóa tài khoản</button>{% else %}<button class="primary" name="action" value="restore">Mở lại tài khoản</button>{% endif %}</form></section>
 </div>
 <details class="card"><summary>Đặt lại mật khẩu</summary><p>Đặt mật khẩu tạm mới và giao trực tiếp cho nhân sự. Người dùng có thể đổi lại sau khi đăng nhập.</p><form method="post" class="stack">{% csrf_token %}{{ password_form.as_p }}<button class="primary" name="action" value="password">Lưu mật khẩu mới</button></form></details>
 {% else %}
